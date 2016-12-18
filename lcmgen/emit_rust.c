@@ -138,8 +138,9 @@ static void emit_header_start(lcmgen_t *lcmgen, FILE *f, lcm_struct_t *ls)
 {
       emit(0, "// GENERATED CODE - DO NOT EDIT");
       emit(0, "");
+      emit(0, "use lcm::generic_array::{GenericArray, typenum};");
       emit(0, "use lcm;");
-      emit(0, "use std::io::Write;");
+      emit(0, "use std::io::{Result, Write};");
       emit(0, "");
 }
 
@@ -162,11 +163,11 @@ static void emit_struct_def(lcmgen_t *lcmgen, FILE *f, lcm_struct_t *ls)
       } else {
         if (lcm_is_constant_size_array(lm)) {
           for (unsigned int d = 0; d < ndim; d++)
-            emit_continue("[");
+            emit_continue("GenericArray<");
           emit_continue("%s", mapped_typename);
           for (unsigned int d = 0; d < ndim; d++) {
             lcm_dimension_t *ld = (lcm_dimension_t *) g_ptr_array_index(lm->dimensions, d);
-            emit_continue("; %s]", ld->size);
+            emit_continue(", typenum::U%s>", ld->size);
           }
         } else {
           for (unsigned int d = 0; d < ndim; d++)
@@ -182,7 +183,7 @@ static void emit_struct_def(lcmgen_t *lcmgen, FILE *f, lcm_struct_t *ls)
     emit(0, "");
 }
 
-static void emit_struct_impl(lcmgen_t *lcmgen, FILE *f, lcm_struct_t *ls)
+static void emit_impl_struct(lcmgen_t *lcmgen, FILE *f, lcm_struct_t *ls)
 {
   char *sn = ls->structname->shortname;
   char *sn_camel = make_rust_type_name(sn);
@@ -195,55 +196,50 @@ static void emit_struct_impl(lcmgen_t *lcmgen, FILE *f, lcm_struct_t *ls)
   emit(0, "");
 }
 
-static void emit_encode(lcmgen_t *lcmgen, FILE *f, lcm_struct_t *ls)
+static void emit_impl_encode(lcmgen_t *lcmgen, FILE *f, lcm_struct_t *ls)
+{
+  char *sn = ls->structname->shortname;
+  char *sn_rust_name = make_rust_type_name(sn);
+
+  emit(0, "impl lcm::Encode for %s {", sn_rust_name);
+
+  emit(1, "fn encode(&self, mut buffer: &mut Write) -> Result<()> {");
+  for (unsigned int mind = 0; mind < g_ptr_array_size(ls->members); mind++) {
+    lcm_member_t *lm = (lcm_member_t *) g_ptr_array_index(ls->members, mind);
+    char *mn = lm->membername;
+    emit(2, "self.%s.encode(&mut buffer)?;", mn);
+  }
+  emit(2, "Ok(())");
+  emit(1, "}");
+
+  emit(0, "");
+
+  // TODO: Implement size function
+  emit(1, "// TODO: Implement size function in lcm-gen");
+  emit(1, "fn size(&self) -> usize {");
+  emit(2, "0");
+  emit(1, "}");
+
+  emit(0, "}");
+  emit(0, "");
+
+  free(sn_rust_name);
+}
+
+static void emit_impl_message(lcmgen_t *lcmgen, FILE *f, lcm_struct_t *ls)
 {
   char *sn = ls->structname->shortname;
   char *sn_camel = make_rust_type_name(sn);
 
   emit(0, "impl lcm::Message for %s {", sn_camel);
 
-  emit(1,     "// TODO: Not properly implemented, but the encode function will resize the buffer,");
-  emit(1,     "//       so this will work well enough for now.");
-  emit(1,     "fn get_size(&self) -> usize {");
-  emit(2,         "0");
-  emit(1,     "}");
-
-  emit(0, "");
-
   emit(1,     "fn get_hash(&self) -> i64 {");
   emit(2,         "let hash = 0x%016"PRIx64";", ls->hash);
   emit(2,         "(hash << 1) + ((hash >> 63) & 1)");
   emit(1,     "}");
 
-  emit(0, "");
-
-  emit(1,     "fn encode(&self, mut buffer: &mut Write) {");
-  emit(2,         "let hash = self.get_hash();");
-  emit(2,         "lcm::encode::encode_i64(&mut buffer, hash);");
-  emit(0,         "");
-  for (unsigned int mind = 0; mind < g_ptr_array_size(ls->members); mind++) {
-    lcm_member_t *lm = (lcm_member_t *) g_ptr_array_index(ls->members, mind);
-    char *mn = lm->membername;
-    const char *mapped_typename = map_type_name(lm->type->lctypename);
-
-    int ndim = g_ptr_array_size(lm->dimensions);
-    if (ndim == 0) {
-      if (!strcmp(mapped_typename, "String"))
-        emit(2, "lcm::encode::encode_str(&mut buffer, &self.%s);", mn);
-      else {
-        emit(2, "lcm::encode::encode_%s(&mut buffer, self.%s);", mapped_typename, mn);
-      }
-    } else {
-      lcm_dimension_t *last_dim = (lcm_dimension_t*) g_ptr_array_index(lm->dimensions, ndim - 1);
-      emit(2, "for &value in &self.%s {", mn);
-      emit(3, "lcm::encode::encode_%s(&mut buffer, value);", mapped_typename);
-      emit(2, "}");
-      // emit(2, "// %s", mn);
-    }
-  }
-  emit(1,     "}");
-
   emit(0, "}");
+  emit(0, "");
 }
 
 int emit_rust(lcmgen_t *lcmgen)
@@ -271,8 +267,9 @@ int emit_rust(lcmgen_t *lcmgen)
 
       emit_header_start(lcmgen, f, lr);
       emit_struct_def(lcmgen, f, lr);
-      emit_struct_impl(lcmgen, f, lr);
-      emit_encode(lcmgen, f, lr);
+      emit_impl_struct(lcmgen, f, lr);
+      emit_impl_encode(lcmgen, f, lr);
+      emit_impl_message(lcmgen, f, lr);
 
       fclose(f);
     }

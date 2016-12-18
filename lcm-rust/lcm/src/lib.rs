@@ -1,7 +1,9 @@
 extern crate byteorder;
+pub extern crate generic_array;
 extern crate libc;
 
-pub mod encode;
+mod encode;
+pub use encode::Encode;
 
 mod lcm;
 pub use lcm::Lcm;

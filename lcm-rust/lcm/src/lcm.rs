@@ -1,6 +1,7 @@
 use std::ffi::CString;
 use libc;
 use message::Message;
+use encode::Encode;
 
 enum CLcm {}
 pub struct Lcm(*mut CLcm);
@@ -19,10 +20,11 @@ impl Lcm {
         Lcm(lcm)
     }
 
-    pub fn publish(&mut self, channel: &str, message: &Message) -> Result<(), ()> {
+    pub fn publish<M: Message + Encode>(&mut self, channel: &str, message: &M) -> Result<(), ()> {
         let channel = CString::new(channel).unwrap();
-        let size = message.get_size();
+        let size = message.size();
         let mut buffer = Vec::with_capacity(size);
+        message.get_hash().encode(&mut buffer);
         message.encode(&mut buffer);
         let datalen = buffer.len();
         unsafe {

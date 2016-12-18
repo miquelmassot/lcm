@@ -24,7 +24,7 @@ impl Lcm {
         let channel = CString::new(channel).unwrap();
         let size = message.size();
         let mut buffer = Vec::with_capacity(size);
-        message.get_hash().encode(&mut buffer);
+        message.hash().encode(&mut buffer);
         message.encode(&mut buffer);
         let datalen = buffer.len();
         unsafe {

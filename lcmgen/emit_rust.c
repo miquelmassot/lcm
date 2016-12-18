@@ -233,7 +233,7 @@ static void emit_impl_message(lcmgen_t *lcmgen, FILE *f, lcm_struct_t *ls)
 
   emit(0, "impl lcm::Message for %s {", sn_camel);
 
-  emit(1,     "fn get_hash(&self) -> i64 {");
+  emit(1,     "fn hash(&self) -> i64 {");
   emit(2,         "let hash = 0x%016"PRIx64";", ls->hash);
   emit(2,         "(hash << 1) + ((hash >> 63) & 1)");
   emit(1,     "}");

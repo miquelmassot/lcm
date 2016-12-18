@@ -39,6 +39,9 @@ int emit_csharp(lcmgen_t *lcm);
 void setup_cpp_options(getopt_t *gopt);
 int emit_cpp(lcmgen_t *lcm);
 
+void setup_rust_options(getopt_t *gopt);
+int emit_rust(lcmgen_t *lcm);
+
 int main(int argc, char *argv[])
 {
     getopt_t *gopt = getopt_create();
@@ -77,6 +80,10 @@ int main(int argc, char *argv[])
     getopt_add_spacer(gopt, "**** C#.NET options ****");
     getopt_add_bool  (gopt, 0, "csharp",      0,     "Emit C#.NET code");
     setup_csharp_options(gopt);
+
+    getopt_add_spacer(gopt, "**** Rust options ****");
+    getopt_add_bool  (gopt, 'r', "rust", 0, "Emit Rust code");
+    setup_rust_options(gopt);
 
     if (!getopt_parse(gopt, argc, argv, 1) || getopt_get_bool(gopt,"help")) {
         printf("Usage: %s [options] <input files>\n\n", argv[0]);
@@ -154,6 +161,13 @@ int main(int argc, char *argv[])
         if (emit_csharp(lcm)) {
             printf("An error occurred while emitting C#.NET code.\n");
         }
+    }
+
+    if (getopt_get_bool(gopt, "rust")) {
+      did_something = 1;
+      if (emit_rust(lcm)) {
+        printf("An error occurred while emitting Rust code.\n");
+      }
     }
 
     if (did_something == 0) {

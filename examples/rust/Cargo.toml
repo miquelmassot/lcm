@@ -1,0 +1,11 @@
+[package]
+name = "rust"
+version = "0.1.0"
+authors = ["Anthony Deschamps <anthony.j.deschamps@gmail.com>"]
+build = "build.rs"
+
+[dependencies]
+lcm = { path = "../../lcm-rust/lcm" }
+
+[build-dependencies]
+lcm_gen = { path = "../../lcm-rust/lcm-gen" }

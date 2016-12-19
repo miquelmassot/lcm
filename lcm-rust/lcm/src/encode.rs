@@ -104,7 +104,7 @@ impl Encode for str {
     }
 
     fn size(&self) -> usize {
-        size_of::<i32>() + self.len()
+        size_of::<i32>() + self.len() + 1
     }
 }
 

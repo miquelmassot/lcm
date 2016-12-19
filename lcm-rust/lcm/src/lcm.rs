@@ -1,3 +1,4 @@
+use std::io::{Error, ErrorKind, Result};
 use std::ffi::CString;
 use libc;
 use message::Message;
@@ -20,18 +21,19 @@ impl Lcm {
         Lcm(lcm)
     }
 
-    pub fn publish<M: Message + Encode>(&mut self, channel: &str, message: &M) -> Result<(), ()> {
+    pub fn publish<M: Message + Encode>(&mut self, channel: &str, message: &M) -> Result<()> {
         let channel = CString::new(channel).unwrap();
-        let size = message.size();
+        let hash = message.hash();
+        let size = hash.size() + message.size();
         let mut buffer = Vec::with_capacity(size);
-        message.hash().encode(&mut buffer);
-        message.encode(&mut buffer);
+        hash.encode(&mut buffer)?;
+        message.encode(&mut buffer)?;
         let datalen = buffer.len();
         unsafe {
             let result = lcm_publish(self.0, channel.as_ptr(), buffer.as_ptr() as *mut libc::c_void, datalen);
             match result {
                 0 => Ok(()),
-                _ => Err(())
+                _ => Err(Error::new(ErrorKind::Other, "LCM Error"))
             }
         }
     }

@@ -214,10 +214,14 @@ static void emit_impl_encode(lcmgen_t *lcmgen, FILE *f, lcm_struct_t *ls)
 
   emit(0, "");
 
-  // TODO: Implement size function
-  emit(1, "// TODO: Implement size function in lcm-gen");
   emit(1, "fn size(&self) -> usize {");
-  emit(2, "0");
+  emit(2, "let mut size = 0;");
+  for (unsigned int mind = 0; mind < g_ptr_array_size(ls->members); mind++) {
+    lcm_member_t *lm = (lcm_member_t *) g_ptr_array_index(ls->members, mind);
+    char *mn = lm->membername;
+    emit(2, "size += self.%s.size();", mn);
+  }
+  emit(2, "size");
   emit(1, "}");
 
   emit(0, "}");

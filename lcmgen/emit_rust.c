@@ -196,12 +196,19 @@ static void emit_impl_struct(lcmgen_t *lcmgen, FILE *f, lcm_struct_t *ls)
   emit(0, "");
 }
 
-static void emit_impl_encode(lcmgen_t *lcmgen, FILE *f, lcm_struct_t *ls)
+static void emit_impl_message(lcmgen_t *lcmgen, FILE *f, lcm_struct_t *ls)
 {
   char *sn = ls->structname->shortname;
   char *sn_rust_name = make_rust_type_name(sn);
 
-  emit(0, "impl lcm::Encode for %s {", sn_rust_name);
+  emit(0, "impl lcm::Message for %s {", sn_rust_name);
+
+  emit(1,     "fn hash(&self) -> i64 {");
+  emit(2,         "let hash = 0x%016"PRIx64";", ls->hash);
+  emit(2,         "(hash << 1) + ((hash >> 63) & 1)");
+  emit(1,     "}");
+
+  emit(0, "");
 
   emit(1, "fn encode(&self, mut buffer: &mut Write) -> Result<()> {");
   for (unsigned int mind = 0; mind < g_ptr_array_size(ls->members); mind++) {
@@ -223,24 +230,6 @@ static void emit_impl_encode(lcmgen_t *lcmgen, FILE *f, lcm_struct_t *ls)
   }
   emit(2, "size");
   emit(1, "}");
-
-  emit(0, "}");
-  emit(0, "");
-
-  free(sn_rust_name);
-}
-
-static void emit_impl_message(lcmgen_t *lcmgen, FILE *f, lcm_struct_t *ls)
-{
-  char *sn = ls->structname->shortname;
-  char *sn_camel = make_rust_type_name(sn);
-
-  emit(0, "impl lcm::Message for %s {", sn_camel);
-
-  emit(1,     "fn hash(&self) -> i64 {");
-  emit(2,         "let hash = 0x%016"PRIx64";", ls->hash);
-  emit(2,         "(hash << 1) + ((hash >> 63) & 1)");
-  emit(1,     "}");
 
   emit(0, "}");
   emit(0, "");
@@ -272,7 +261,6 @@ int emit_rust(lcmgen_t *lcmgen)
       emit_header_start(lcmgen, f, lr);
       emit_struct_def(lcmgen, f, lr);
       emit_impl_struct(lcmgen, f, lr);
-      emit_impl_encode(lcmgen, f, lr);
       emit_impl_message(lcmgen, f, lr);
 
       fclose(f);

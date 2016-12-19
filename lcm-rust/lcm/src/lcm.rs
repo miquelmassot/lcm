@@ -2,7 +2,6 @@ use std::io::{Error, ErrorKind, Result};
 use std::ffi::CString;
 use libc;
 use message::Message;
-use encode::Encode;
 
 enum CLcm {}
 pub struct Lcm(*mut CLcm);
@@ -21,7 +20,7 @@ impl Lcm {
         Lcm(lcm)
     }
 
-    pub fn publish<M: Message + Encode>(&mut self, channel: &str, message: &M) -> Result<()> {
+    pub fn publish(&mut self, channel: &str, message: &Message) -> Result<()> {
         let channel = CString::new(channel).unwrap();
         let hash = message.hash();
         let size = hash.size() + message.size();

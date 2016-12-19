@@ -30,5 +30,8 @@ fn main() {
     my_data.name = "example string".to_string();
     my_data.enabled = true;
 
-    lcm.publish("EXAMPLE", &my_data);
+    match lcm.publish("EXAMPLE", &my_data) {
+        Ok(()) => println!("Sent message."),
+        Err(e) => println!("Failed to send message: {}", e)
+    }
 }

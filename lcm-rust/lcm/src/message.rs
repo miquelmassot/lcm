@@ -94,14 +94,14 @@ impl Message for f64 {
     }
 }
 
-impl Message for str {
+impl Message for String {
     fn encode(&self, buffer: &mut Write) -> Result<()> {
         let len : i32 = self.len() as i32 + 1;
         len.encode(buffer)?;
         for &b in self.as_bytes() {
             b.encode(buffer)?;
         }
-        (1 as u8).encode(buffer)?;
+        (0 as u8).encode(buffer)?;
         Ok(())
     }
 

@@ -22,11 +22,7 @@ impl Lcm {
 
     pub fn publish(&mut self, channel: &str, message: &Message) -> Result<()> {
         let channel = CString::new(channel).unwrap();
-        let hash = message.hash();
-        let size = hash.size() + message.size();
-        let mut buffer = Vec::with_capacity(size);
-        hash.encode(&mut buffer)?;
-        message.encode(&mut buffer)?;
+        let buffer = message.encode_with_hash()?;
         let datalen = buffer.len();
         unsafe {
             let result = lcm_publish(self.0, channel.as_ptr(), buffer.as_ptr() as *mut libc::c_void, datalen);

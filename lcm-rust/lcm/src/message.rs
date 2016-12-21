@@ -4,6 +4,14 @@ use std::io::{Result, Error, ErrorKind, Read, Write};
 use std::mem::size_of;
 
 pub trait Message {
+    fn encode_with_hash(&self) -> Result<Vec<u8>> {
+        let hash = self.hash();
+        let size = hash.size() + self.size();
+        let mut buffer = Vec::with_capacity(size);
+        hash.encode(&mut buffer)?;
+        self.encode(&mut buffer)?;
+        Ok(buffer)
+    }
     fn hash(&self) -> i64 { 0 }
     fn encode(&self, buffer: &mut Write) -> Result<()>;
     fn decode(&mut self, buffer: &mut Read) -> Result<()> { Err(Error::new(ErrorKind::Other, "Unimplemented")) }

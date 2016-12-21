@@ -30,7 +30,7 @@ impl Message for u8 {
     }
 
     fn size(&self) -> usize {
-        size_of::<u8>()
+        size_of::<Self>()
     }
 }
 
@@ -40,7 +40,7 @@ impl Message for i8 {
     }
 
     fn size(&self) -> usize {
-        size_of::<i8>()
+        size_of::<Self>()
     }
 }
 
@@ -50,7 +50,7 @@ impl Message for i16 {
     }
 
     fn size(&self) -> usize {
-        size_of::<i16>()
+        size_of::<Self>()
     }
 }
 
@@ -60,7 +60,7 @@ impl Message for i32 {
     }
 
     fn size(&self) -> usize {
-        size_of::<i32>()
+        size_of::<Self>()
     }
 }
 
@@ -70,7 +70,7 @@ impl Message for i64 {
     }
 
     fn size(&self) -> usize {
-        size_of::<i64>()
+        size_of::<Self>()
     }
 }
 
@@ -80,7 +80,7 @@ impl Message for f32 {
     }
 
     fn size(&self) -> usize {
-        size_of::<f32>()
+        size_of::<Self>()
     }
 }
 
@@ -120,7 +120,7 @@ impl<T> Message for Vec<T> where
     }
 
     fn size(&self) -> usize {
-        size_of::<T>() * self.len()
+        self.iter().map(Message::size).sum()
     }
 }
 
@@ -134,6 +134,6 @@ impl<T,N> Message for GenericArray<T, N> where
     }
 
     fn size(&self) -> usize {
-        size_of::<T>() * self.len()
+        self.iter().map(Message::size).sum()
     }
 }

@@ -5,7 +5,7 @@ mod exlcm {
 }
 
 fn main() {
-    let mut lcm = lcm::Lcm::new();
+    let mut lcm = lcm::Lcm::new().unwrap();
 
     let mut my_data = exlcm::ExampleT::new();
     // let mut my_data = exlcm::Example::new();

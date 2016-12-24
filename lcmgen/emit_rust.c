@@ -140,7 +140,7 @@ static void emit_header_start(lcmgen_t *lcmgen, FILE *f, lcm_struct_t *ls)
       emit(0, "");
       emit(0, "use lcm::generic_array::{GenericArray, typenum};");
       emit(0, "use lcm;");
-      emit(0, "use std::io::{Result, Write};");
+      emit(0, "use std::io::{Result, Error, ErrorKind, Read, Write};");
       emit(0, "");
 }
 
@@ -149,7 +149,7 @@ static void emit_struct_def(lcmgen_t *lcmgen, FILE *f, lcm_struct_t *ls)
     char *sn = ls->structname->shortname;
     char *sn_camel = make_rust_type_name(sn);
 
-    emit(0, "#[derive(Default)]");
+    emit(0, "#[derive(Debug, Default)]");
     emit(0, "pub struct %s {", sn_camel);
     for (unsigned int mind = 0; mind < g_ptr_array_size(ls->members); mind++) {
       lcm_member_t *lm = (lcm_member_t *) g_ptr_array_index(ls->members, mind);
@@ -221,14 +221,45 @@ static void emit_impl_message(lcmgen_t *lcmgen, FILE *f, lcm_struct_t *ls)
 
   emit(0, "");
 
-  emit(1, "fn size(&self) -> usize {");
-  emit(2, "let mut size = 0;");
+  emit(1, "fn decode(&mut self, mut buffer: &mut Read) -> Result<()> {");
   for (unsigned int mind = 0; mind < g_ptr_array_size(ls->members); mind++) {
     lcm_member_t *lm = (lcm_member_t *) g_ptr_array_index(ls->members, mind);
     char *mn = lm->membername;
-    emit(2, "size += self.%s.size();", mn);
+
+    // Arrays encodings are not length prefixed,
+    // so if this is a dynamically sized array we need
+    // to initialize it with the correct capacity.
+    int ndim = g_ptr_array_size(lm->dimensions);
+    if (ndim == 0) {
+      // Nothing to do; this is not an array.
+    } else {
+      lcm_dimension_t *ld = (lcm_dimension_t *) g_ptr_array_index(lm->dimensions, 0);
+      if (lcm_is_constant_size_array(lm)) {
+        // Nothing to do; array size is know at compile time.
+      } else {
+        emit(2, "self.%s = Vec::with_capacity(self.%s as usize);", mn, ld->size);
+      }
+    }
+
+
+
+
+    emit(2, "self.%s.decode(&mut buffer)?;", mn);
   }
-  emit(2, "size");
+  emit(2, "Ok(())");
+  // emit(2, ")");
+  // emit(2, "Err(Error::new(ErrorKind::Other, \"Unimplemented\"))");
+  emit(1, "}");
+
+  emit(0, "");
+
+  emit(1, "fn size(&self) -> usize {");
+  emit(2, "0");
+  for (unsigned int mind = 0; mind < g_ptr_array_size(ls->members); mind++) {
+    lcm_member_t *lm = (lcm_member_t *) g_ptr_array_index(ls->members, mind);
+    char *mn = lm->membername;
+    emit(2, "+ self.%s.size()", mn);
+  }
   emit(1, "}");
 
   emit(0, "}");

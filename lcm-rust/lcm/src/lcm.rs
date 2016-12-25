@@ -10,7 +10,7 @@ use std::ops::Deref;
 
 enum CLcm {}
 
-/// TODO: Struct documentation.
+/// An LCM instance that hnadles publishing and subscribing, as well as encoding and decoding messages.
 pub struct Lcm {
     lcm: *mut CLcm,
     subscriptions: Vec<Rc<LcmSubscription>>

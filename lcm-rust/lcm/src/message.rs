@@ -4,7 +4,7 @@ use std::io::{Result, Error, ErrorKind, Read, Write};
 use std::mem::size_of;
 use std::default::Default;
 
-/// TODO: Document
+/// A message that can be encoded and decoded according to the LCM protocol.
 pub trait Message {
     /// Encodes a message into a buffer, with the message hash at the beginning.
     fn encode_with_hash(&self) -> Result<Vec<u8>> {

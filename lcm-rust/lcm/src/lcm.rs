@@ -84,7 +84,7 @@ impl Lcm {
     /// use std::sync::mpsc::channel;
     ///
     /// let mut lcm = Lcm::new().unwrap();
-    /// let (tx, rx) = channel::<exlcm::ExampleT>();
+    /// let (tx, rx) = channel::<exlcm::Example>();
     /// lcm.subscribe("POSITION", |pos| { tx.send(pos).unwrap(); }
     /// ```
     pub fn subscribe<M, F>(&mut self, channel: &str, mut callback: Box<F>) -> Rc<LcmSubscription>
@@ -143,7 +143,7 @@ impl Lcm {
     /// # use lcm::Lcm;
     /// let mut lcm = Lcm::new().unwrap();
     ///
-    /// let mut my_data = exlcm::ExampleT::new();
+    /// let mut my_data = exlcm::Example::new();
     /// my_data.timestamp = 0;
     /// my_data.position[0] = 1.0;
     /// my_data.position[1] = 2.0;

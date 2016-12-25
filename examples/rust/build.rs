@@ -1,11 +1,10 @@
 extern crate lcm_gen;
 
-use std::env;
 use std::path::PathBuf;
 
 fn main() {
-    let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
-    let mut lcm_source_dir = PathBuf::from(manifest_dir);
+    // lcm types are in a sibling directory: ../types/
+    let mut lcm_source_dir : PathBuf = env!("CARGO_MANIFEST_DIR").into();
     lcm_source_dir.pop();
     lcm_source_dir.push("types");
 

@@ -1,6 +1,6 @@
 extern crate lcm;
 
-// TODO: Fix this
+// TODO: There must be a better way to include generated code.
 mod exlcm {
     include!(concat!(env!("OUT_DIR"), "/exlcm/example_t.rs"));
 }
@@ -8,10 +8,13 @@ mod exlcm {
 fn main() {
     let mut lcm = lcm::Lcm::new().unwrap();
 
-    lcm.subscribe("EXAMPLE", Box::new(|msg: exlcm::ExampleT| {
+    lcm.subscribe("EXAMPLE", Box::new(|msg: exlcm::Example| {
         println!("Received message: {:?}", msg)
     }));
 
-    lcm.handle().unwrap();
-    // loop { lcm.handle(); }
+    loop {
+        lcm.handle().unwrap_or_else(|e| {
+            println!("Error handling message: {}", e);
+        })
+    }
 }

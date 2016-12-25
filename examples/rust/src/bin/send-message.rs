@@ -1,5 +1,6 @@
 extern crate lcm;
 
+// TODO: There must be a better way to include generated code.
 mod exlcm {
     include!(concat!(env!("OUT_DIR"), "/exlcm/example_t.rs"));
 }
@@ -7,8 +8,8 @@ mod exlcm {
 fn main() {
     let mut lcm = lcm::Lcm::new().unwrap();
 
-    let mut my_data = exlcm::ExampleT::new();
-    // let mut my_data = exlcm::Example::new();
+    // let mut my_data = exlcm::ExampleT::new();
+    let mut my_data = exlcm::Example::new();
     my_data.timestamp = 0;
 
     my_data.position[0] = 1.0;

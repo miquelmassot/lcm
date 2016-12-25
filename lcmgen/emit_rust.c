@@ -31,6 +31,8 @@ static char *dots_to_slashes(const char *s)
 static char *make_rust_type_name(const char *input)
 {
   char* result = strdup(input);
+
+  // Convert to camel case
   char* result_char = result;
   int capitalize_next_char = 1;
   for (const char* c = input; *c != 0; ++c) {
@@ -41,12 +43,20 @@ static char *make_rust_type_name(const char *input)
         capitalize_next_char = 0;
         *result_char = toupper(*c);
       } else {
-        *result_char = *c;
+        *result_char = tolower(*c);
       }
       ++result_char;
     }
   }
   *result_char = 0;
+
+  // Special case:
+  // For type names following the C convention of *_t,
+  // remove the _t suffix
+  // (or rather, the trailing 'T', since we've already converted to camel case)
+  if (result_char - result > 2 && *(result_char - 1) == 'T')
+    *(result_char - 1) = 0;
+
   return result;
 }
 

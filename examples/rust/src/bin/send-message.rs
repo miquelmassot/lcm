@@ -29,6 +29,6 @@ fn main() {
 
     match lcm.publish("EXAMPLE", &my_data) {
         Ok(()) => println!("Sent message."),
-        Err(e) => println!("Failed to send message: {}", e)
+        Err(e) => println!("Failed to send message: {}", e),
     }
 }

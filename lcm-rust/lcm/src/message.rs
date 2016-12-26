@@ -19,9 +19,10 @@ pub trait Message {
     /// Decodes a message from a buffer,
     /// and also checks that the hash at the beginning is correct.
     fn decode_with_hash(&mut self, mut buffer: &mut Read) -> Result<()>
-        where Self: Sized + Default {
+        where Self: Sized + Default
+    {
 
-        let mut hash : i64 = 0;
+        let mut hash: i64 = 0;
         hash.decode(&mut buffer)?;
         if hash != self.hash() {
             return Err(Error::new(ErrorKind::Other, "Invalid hash"));
@@ -32,7 +33,9 @@ pub trait Message {
     /// Returns the message hash for this type.
     /// Returns `0` for all primitive types.
     /// Generated `Lcm` types should implement this function.
-    fn hash(&self) -> i64 { 0 }
+    fn hash(&self) -> i64 {
+        0
+    }
 
     /// Encodes a message into a buffer.
     /// `Lcm` uses a `Vec<u8>` with its capacity set to the value returned by [`size()`].
@@ -47,9 +50,9 @@ pub trait Message {
 
 impl Message for bool {
     fn encode(&self, buffer: &mut Write) -> Result<()> {
-        let value : i8 = match *self {
+        let value: i8 = match *self {
             true => 1,
-            false => 0
+            false => 0,
         };
         value.encode(buffer)
     }
@@ -59,7 +62,10 @@ impl Message for bool {
         *self = match value {
             0 => false,
             1 => true,
-            _ => return Err(Error::new(ErrorKind::InvalidData, "Booleans should be encoded as 0 or 1"))
+            _ => {
+                return Err(Error::new(ErrorKind::InvalidData,
+                                      "Booleans should be encoded as 0 or 1"))
+            }
         };
         Ok(())
     }
@@ -169,7 +175,7 @@ impl Message for f64 {
 
 impl Message for String {
     fn encode(&self, buffer: &mut Write) -> Result<()> {
-        let len : i32 = self.len() as i32 + 1;
+        let len: i32 = self.len() as i32 + 1;
         len.encode(buffer)?;
         for &b in self.as_bytes() {
             b.encode(buffer)?;
@@ -186,7 +192,7 @@ impl Message for String {
         match buffer.read_u8() {
             Ok(0) => Ok(()),
             Ok(_) => Err(Error::new(ErrorKind::InvalidData, "Expected null terminator")),
-            Err(e) => Err(e)
+            Err(e) => Err(e),
         }
     }
 
@@ -195,8 +201,9 @@ impl Message for String {
     }
 }
 
-impl<T> Message for Vec<T> where
-    T : Message + Default {
+impl<T> Message for Vec<T>
+    where T: Message + Default
+{
     fn encode(&self, buffer: &mut Write) -> Result<()> {
         for val in self.iter() {
             val.encode(buffer)?;
@@ -218,8 +225,10 @@ impl<T> Message for Vec<T> where
     }
 }
 
-impl<T,N> Message for GenericArray<T, N> where
-    T : Message + Default, N : ArrayLength<T> {
+impl<T, N> Message for GenericArray<T, N>
+    where T: Message + Default,
+          N: ArrayLength<T>
+{
     fn encode(&self, buffer: &mut Write) -> Result<()> {
         for val in self.iter() {
             val.encode(buffer)?;

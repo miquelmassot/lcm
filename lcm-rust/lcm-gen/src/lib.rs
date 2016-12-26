@@ -31,7 +31,7 @@ use std::process::Command;
 /// This struct is used to configure options for, and then run, the `lcm-gen` command.
 pub struct LcmGen {
     files: Vec<PathBuf>,
-    out_dir: PathBuf
+    out_dir: PathBuf,
 }
 
 impl LcmGen {
@@ -39,7 +39,7 @@ impl LcmGen {
     pub fn new() -> Self {
         LcmGen {
             files: Vec::new(),
-            out_dir: env::var("OUT_DIR").unwrap().into()
+            out_dir: env::var("OUT_DIR").unwrap().into(),
         }
     }
 
@@ -58,8 +58,8 @@ impl LcmGen {
     /// Recursively adds all the `.lcm` files from a directory.
     pub fn add_directory(&mut self, path: PathBuf) -> &Self {
         let pattern = format!("{}/**/*.lcm", path.display());
-        let paths =
-            glob(pattern.as_str()).unwrap()
+        let paths = glob(pattern.as_str())
+            .unwrap()
             .filter_map(Result::ok);
         for path in paths {
             self.files.push(path);
@@ -73,8 +73,7 @@ impl LcmGen {
         for path in &self.files {
             cmd.arg(path);
         }
-        cmd
-            .arg("--rust")
+        cmd.arg("--rust")
             .arg(format!("--rust-path={}", self.out_dir.display()));
 
         let status = cmd.status().unwrap();

@@ -1,5 +1,5 @@
 use std::io::{Error, ErrorKind, Result};
-use std::ffi::{CString};
+use std::ffi::CString;
 use libc;
 use message::Message;
 use std::cmp::Ordering;
@@ -10,19 +10,20 @@ use std::ops::Deref;
 
 enum CLcm {}
 
-/// An LCM instance that hnadles publishing and subscribing, as well as encoding and decoding messages.
+/// An LCM instance that hnadles publishing and subscribing,
+/// as well as encoding and decoding messages.
 pub struct Lcm {
     lcm: *mut CLcm,
-    subscriptions: Vec<Rc<LcmSubscription>>
+    subscriptions: Vec<Rc<LcmSubscription>>,
 }
 
-type CLcmHandler = extern fn(*const CLcmRecvBuf, *const libc::c_char, *const libc::c_void);
+type CLcmHandler = extern "C" fn(*const CLcmRecvBuf, *const libc::c_char, *const libc::c_void);
 
 #[derive(Eq, PartialEq, Hash)]
 enum CLcmSubscription {}
 pub struct LcmSubscription {
     subscription: *mut CLcmSubscription,
-    handler: Box<FnMut(*const CLcmRecvBuf)>
+    handler: Box<FnMut(*const CLcmRecvBuf)>,
 }
 
 #[repr(C)]
@@ -31,28 +32,38 @@ struct CLcmRecvBuf {
     data: *const libc::c_void,
     data_size: libc::uint32_t,
     recv_utime: libc::int64_t,
-    lcm: *const CLcm
+    lcm: *const CLcm,
 }
 
 #[link(name = "lcm")]
-extern {
+extern "C" {
     fn lcm_create(provider: *const libc::c_char) -> *mut CLcm;
 
     fn lcm_destroy(lcm: *mut CLcm);
 
     fn lcm_get_fileno(lcm: *mut CLcm) -> libc::c_int;
 
-    fn lcm_subscribe(lcm: *mut CLcm, channel: *const libc::c_char, handler: CLcmHandler, userdata: *const libc::c_void) -> *mut CLcmSubscription;
+    fn lcm_subscribe(lcm: *mut CLcm,
+                     channel: *const libc::c_char,
+                     handler: CLcmHandler,
+                     userdata: *const libc::c_void)
+                     -> *mut CLcmSubscription;
 
     fn lcm_unsubscribe(lcm: *mut CLcm, handler: *const CLcmSubscription) -> libc::c_int;
 
-    fn lcm_publish(lcm: *mut CLcm, channel: *const libc::c_char, data: *const libc::c_void, datalen: libc::c_uint) -> libc::c_int;
+    fn lcm_publish(lcm: *mut CLcm,
+                   channel: *const libc::c_char,
+                   data: *const libc::c_void,
+                   datalen: libc::c_uint)
+                   -> libc::c_int;
 
     fn lcm_handle(lcm: *mut CLcm) -> libc::c_int;
 
     fn lcm_handle_timeout(lcm: *mut CLcm, timeout_millis: libc::c_int) -> libc::c_int;
 
-    fn lcm_subscription_set_queue_capacity(handler: *const CLcmSubscription, num_messages: libc::c_int) -> libc::c_int;
+    fn lcm_subscription_set_queue_capacity(handler: *const CLcmSubscription,
+                                           num_messages: libc::c_int)
+                                           -> libc::c_int;
 }
 
 impl Lcm {
@@ -66,10 +77,12 @@ impl Lcm {
         let lcm = unsafe { lcm_create(ptr::null()) };
         match lcm.is_null() {
             true => Err(Error::new(ErrorKind::Other, "Failed to initialize LCM.")),
-            false => Ok(Lcm{
-                lcm: lcm,
-                subscriptions: Vec::new()
-            })
+            false => {
+                Ok(Lcm {
+                    lcm: lcm,
+                    subscriptions: Vec::new(),
+                })
+            }
         }
     }
 
@@ -88,7 +101,9 @@ impl Lcm {
     /// lcm.subscribe("POSITION", |pos| { tx.send(pos).unwrap(); }
     /// ```
     pub fn subscribe<M, F>(&mut self, channel: &str, mut callback: Box<F>) -> Rc<LcmSubscription>
-        where M: Message + Default, F: FnMut(M) + 'static {
+        where M: Message + Default,
+              F: FnMut(M) + 'static
+    {
         let channel = CString::new(channel).unwrap();
 
         let handler = Box::new(move |rbuf: *const CLcmRecvBuf| {
@@ -105,14 +120,19 @@ impl Lcm {
             }
         });
 
-        let mut subscription = Rc::new(LcmSubscription{
+        let mut subscription = Rc::new(LcmSubscription {
             subscription: ptr::null_mut(),
-            handler: handler
+            handler: handler,
         });
 
         let user_data = (subscription.deref() as *const LcmSubscription) as *const libc::c_void;
 
-        let c_subscription = unsafe { lcm_subscribe(self.lcm, channel.as_ptr(), Lcm::handler_callback::<M>, user_data) };
+        let c_subscription = unsafe {
+            lcm_subscribe(self.lcm,
+                          channel.as_ptr(),
+                          Lcm::handler_callback::<M>,
+                          user_data)
+        };
 
         Rc::get_mut(&mut subscription).unwrap().subscription = c_subscription;
         self.subscriptions.push(subscription.clone());
@@ -133,7 +153,7 @@ impl Lcm {
         let result = unsafe { lcm_unsubscribe(self.lcm, handler.subscription) };
         match result {
             0 => Ok(()),
-            _ => Err(Error::new(ErrorKind::Other, "LCM: Failed to unsubscribe"))
+            _ => Err(Error::new(ErrorKind::Other, "LCM: Failed to unsubscribe")),
         }
     }
 
@@ -155,10 +175,15 @@ impl Lcm {
         let channel = CString::new(channel).unwrap();
         let buffer = message.encode_with_hash()?;
         let datalen = buffer.len() as libc::c_uint;
-        let result = unsafe { lcm_publish(self.lcm, channel.as_ptr(), buffer.as_ptr() as *mut libc::c_void, datalen) };
+        let result = unsafe {
+            lcm_publish(self.lcm,
+                        channel.as_ptr(),
+                        buffer.as_ptr() as *mut libc::c_void,
+                        datalen)
+        };
         match result {
             0 => Ok(()),
-            _ => Err(Error::new(ErrorKind::Other, "LCM Error"))
+            _ => Err(Error::new(ErrorKind::Other, "LCM Error")),
         }
     }
 
@@ -176,7 +201,7 @@ impl Lcm {
         let result = unsafe { lcm_handle(self.lcm) };
         match result {
             0 => Ok(()),
-            _ => Err(Error::new(ErrorKind::Other, "LCM Error"))
+            _ => Err(Error::new(ErrorKind::Other, "LCM Error")),
         }
     }
 
@@ -196,7 +221,7 @@ impl Lcm {
         match result.cmp(&0) {
             Ordering::Less => Err(Error::new(ErrorKind::Other, "LCM Error")),
             Ordering::Equal => Err(Error::new(ErrorKind::Other, "LCM Timeout")),
-            Ordering::Greater => Ok(())
+            Ordering::Greater => Ok(()),
         }
     }
 
@@ -217,10 +242,11 @@ impl Lcm {
 
 
 
-    extern fn handler_callback<M>(rbuf: *const CLcmRecvBuf,
-                                  _ /*channel*/: *const libc::c_char,
-                                  user_data: *const libc::c_void)
-        where M: Message {
+    extern "C" fn handler_callback<M>(rbuf: *const CLcmRecvBuf,
+                                      _: *const libc::c_char,
+                                      user_data: *const libc::c_void)
+        where M: Message
+    {
 
         let sub = user_data as *mut LcmSubscription;
         let sub = unsafe { &mut *sub };

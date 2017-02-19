@@ -44,8 +44,8 @@ impl LcmGen {
     }
 
     /// Sets the output directory. The default is `env::var("OUT_DIR")`.
-    pub fn output_directory(&mut self, path: PathBuf) -> &Self {
-        self.out_dir = path;
+    pub fn output_directory(&mut self, path: &PathBuf) -> &Self {
+        self.out_dir = path.clone();
         self
     }
 
@@ -67,16 +67,29 @@ impl LcmGen {
         self
     }
 
-    /// Runs `lcm-gen --rust --rast-path={}` on each `.lcm` file that was added.
+    /// Runs `lcm-gen --rust --rust-path={}` on each `.lcm` file that was added.
     pub fn run(&self) {
+        // Rerun if the lcm-gen binary changes
+        let which_output =
+            Command::new("which")
+            .arg("lcm-gen")
+            .output()
+            .expect("failed to find lcm-gen binary");
+        assert!(which_output.status.success(), "Failed to find lcm-gen binary");
+        println!("cargo:rerun-if-changed={}", String::from_utf8_lossy(&which_output.stdout));
+
+        // Build the lcm-gen command
         let mut cmd = Command::new("lcm-gen");
-        for path in &self.files {
-            cmd.arg(path);
-        }
         cmd.arg("--rust")
             .arg(format!("--rust-path={}", self.out_dir.display()));
+        for path in &self.files {
+            println!("cargo:rerun-if-changed={}", path.display());
+            cmd.arg(path);
+        }
 
         let status = cmd.status().unwrap();
-        assert!(status.success());
+        assert!(status.success(), "lcm-gen failed");
+
+        println!("cargo:include={}", self.out_dir.display());
     }
 }

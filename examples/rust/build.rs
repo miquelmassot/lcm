@@ -1,5 +1,6 @@
 extern crate lcm_gen;
 
+use lcm_gen::LcmGen;
 use std::path::PathBuf;
 
 fn main() {
@@ -8,9 +9,11 @@ fn main() {
     lcm_source_dir.pop();
     lcm_source_dir.push("types");
 
-    println!("cargo:rerun-if-changed={}", lcm_source_dir.display());
+    let mut dest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    dest.push("src");
 
-    lcm_gen::LcmGen::new()
-        .add_directory(lcm_source_dir)
-        .run();
+    let mut gen = LcmGen::new();
+    gen.output_directory(&dest);
+    gen.add_directory(lcm_source_dir);
+    gen.run();
 }

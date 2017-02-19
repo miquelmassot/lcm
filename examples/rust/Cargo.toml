@@ -9,3 +9,7 @@ lcm = { path = "../../lcm-rust/lcm" }
 
 [build-dependencies]
 lcm_gen = { path = "../../lcm-rust/lcm-gen" }
+
+[lib]
+name = "example"
+path = "src/lib.rs"

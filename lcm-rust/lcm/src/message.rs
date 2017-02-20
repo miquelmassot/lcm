@@ -55,17 +55,14 @@ impl Message for bool {
         value.encode(buffer)
     }
 
-    fn decode(&mut self, buffer: &mut Read) -> Result<()> {
+    fn decode(buffer: &mut Read) -> Result<Self> {
         let value = buffer.read_i8()?;
-        *self = match value {
-            0 => false,
-            1 => true,
-            _ => {
-                return Err(Error::new(ErrorKind::InvalidData,
-                                      "Booleans should be encoded as 0 or 1"))
-            }
-        };
-        Ok(())
+        match value {
+            0 => Ok(false),
+            1 => Ok(true),
+            _ => Err(Error::new(ErrorKind::InvalidData,
+                                "Booleans should be encoded as 0 or 1"))
+        }
     }
 
     fn size(&self) -> usize {
@@ -78,8 +75,8 @@ impl Message for u8 {
         buffer.write_u8(*self)
     }
 
-    fn decode(&mut self, buffer: &mut Read) -> Result<()> {
-        Ok(*self = buffer.read_u8()?)
+    fn decode(buffer: &mut Read) -> Result<Self> {
+        buffer.read_u8()
     }
 
     fn size(&self) -> usize {
@@ -92,8 +89,8 @@ impl Message for i8 {
         buffer.write_i8(*self)
     }
 
-    fn decode(&mut self, buffer: &mut Read) -> Result<()> {
-        Ok(*self = buffer.read_i8()?)
+    fn decode(buffer: &mut Read) -> Result<Self> {
+        buffer.read_i8()
     }
 
     fn size(&self) -> usize {
@@ -106,8 +103,8 @@ impl Message for i16 {
         buffer.write_i16::<BigEndian>(*self)
     }
 
-    fn decode(&mut self, buffer: &mut Read) -> Result<()> {
-        Ok(*self = buffer.read_i16::<BigEndian>()?)
+    fn decode(buffer: &mut Read) -> Result<Self> {
+        buffer.read_i16::<BigEndian>()
     }
 
     fn size(&self) -> usize {
@@ -120,8 +117,22 @@ impl Message for i32 {
         buffer.write_i32::<BigEndian>(*self)
     }
 
-    fn decode(&mut self, buffer: &mut Read) -> Result<()> {
-        Ok(*self = buffer.read_i32::<BigEndian>()?)
+    fn decode(buffer: &mut Read) -> Result<Self> {
+        buffer.read_i32::<BigEndian>()
+    }
+
+    fn size(&self) -> usize {
+        size_of::<Self>()
+    }
+}
+
+impl Message for u64 {
+    fn encode(&self, buffer: &mut Write) -> Result<()> {
+        buffer.write_u64::<BigEndian>(*self)
+    }
+
+    fn decode(buffer: &mut Read) -> Result<Self> {
+        buffer.read_u64::<BigEndian>()
     }
 
     fn size(&self) -> usize {
@@ -134,8 +145,8 @@ impl Message for i64 {
         buffer.write_i64::<BigEndian>(*self)
     }
 
-    fn decode(&mut self, buffer: &mut Read) -> Result<()> {
-        Ok(*self = buffer.read_i64::<BigEndian>()?)
+    fn decode(buffer: &mut Read) -> Result<Self> {
+        buffer.read_i64::<BigEndian>()
     }
 
     fn size(&self) -> usize {
@@ -148,8 +159,8 @@ impl Message for f32 {
         buffer.write_f32::<BigEndian>(*self)
     }
 
-    fn decode(&mut self, buffer: &mut Read) -> Result<()> {
-        Ok(*self = buffer.read_f32::<BigEndian>()?)
+    fn decode(buffer: &mut Read) -> Result<Self> {
+        buffer.read_f32::<BigEndian>()
     }
 
     fn size(&self) -> usize {
@@ -162,8 +173,8 @@ impl Message for f64 {
         buffer.write_f64::<BigEndian>(*self)
     }
 
-    fn decode(&mut self, buffer: &mut Read) -> Result<()> {
-        Ok(*self = buffer.read_f64::<BigEndian>()?)
+    fn decode(buffer: &mut Read) -> Result<Self> {
+        buffer.read_f64::<BigEndian>()
     }
 
     fn size(&self) -> usize {
@@ -182,13 +193,15 @@ impl Message for String {
         Ok(())
     }
 
-    fn decode(&mut self, buffer: &mut Read) -> Result<()> {
+    fn decode(buffer: &mut Read) -> Result<Self> {
         let len = buffer.read_i32::<BigEndian>()? - 1;
         let mut buf = Vec::with_capacity(len as usize);
-        buf.decode(buffer)?;
-        *self = String::from_utf8(buf).map_err(|e| Error::new(ErrorKind::Other, e))?;
+        for _ in 0..len {
+            buf.push(u8::decode(buffer)?)
+        }
+        let result = String::from_utf8(buf).map_err(|e| Error::new(ErrorKind::Other, e))?;
         match buffer.read_u8() {
-            Ok(0) => Ok(()),
+            Ok(0) => Ok(result),
             Ok(_) => Err(Error::new(ErrorKind::InvalidData, "Expected null terminator")),
             Err(e) => Err(e),
         }

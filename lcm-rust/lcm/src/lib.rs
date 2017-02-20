@@ -10,8 +10,6 @@
 //! See also the `lcm-gen` crate, for running `lcmgen` at build time.
 
 extern crate byteorder;
-
-pub extern crate generic_array;
 extern crate libc;
 
 mod lcm;

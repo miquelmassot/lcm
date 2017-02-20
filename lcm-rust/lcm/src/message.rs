@@ -1,8 +1,6 @@
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
-use generic_array::{ArrayLength, GenericArray};
 use std::io::{Result, Error, ErrorKind, Read, Write};
 use std::mem::size_of;
-use std::default::Default;
 
 /// A message that can be encoded and decoded according to the LCM protocol.
 pub trait Message {

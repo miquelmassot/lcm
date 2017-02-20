@@ -5,5 +5,4 @@ authors = ["Anthony Deschamps <anthony.j.deschamps@gmail.com>"]
 
 [dependencies]
 byteorder = "0.5"
-generic-array = { git = "https://github.com/fizyk20/generic-array" }
 libc = "0.2"

@@ -94,8 +94,7 @@ static char * make_rust_type_name(const lcm_typename_t *typename) {
     *result_char = 0;
 
     // Special case:
-    // For type names following the C convention of *_t,
-    // remove the _t suffix
+    // For type names following the C convention of *_t, remove the _t suffix
     // (or rather, the trailing 'T', since we've already converted to camel case)
     if (result_char - result > 2 && *(result_char - 1) == 'T')
         *(result_char - 1) = 0;
@@ -193,11 +192,8 @@ static void emit_header_start(lcmgen_t *lcmgen, FILE *f)
 {
     emit(0, "// GENERATED CODE - DO NOT EDIT");
     emit(0, "");
-    emit(0, "use lcm::generic_array::{GenericArray, typenum};");
-    emit(0, "use lcm;");
-    emit(0, "use std::io::{Result, Error, ErrorKind, Read, Write};");
-    emit(0, "");
-    emit(0, "const MAX_VEC_SIZE : usize = 2000000;");
+    emit(0, "use lcm::Message;");
+    emit(0, "use std::io::{Result, Read, Write};");
     emit(0, "");
 }
 
@@ -222,8 +218,7 @@ static void emit_struct_def(lcmgen_t *lcmgen, FILE *f, lcm_struct_t *lcm_struct)
             lcm_dimension_t *dimension = (lcm_dimension_t*) g_ptr_array_index(member->dimensions, d);
             switch (dimension->mode) {
             case LCM_CONST: {
-                emit_continue("GenericArray<");
-                /* emit_continue("["); */
+                emit_continue("[");
                 break;
             }
             case LCM_VAR: {
@@ -244,8 +239,7 @@ static void emit_struct_def(lcmgen_t *lcmgen, FILE *f, lcm_struct_t *lcm_struct)
             lcm_dimension_t *dimension = (lcm_dimension_t*) g_ptr_array_index(member->dimensions, d);
             switch (dimension->mode) {
             case LCM_CONST: {
-                emit_continue(", typenum::U%s>", dimension->size);
-                /* emit_continue("; %s]", dimension->size); */
+                emit_continue("; %s]", dimension->size);
                 break;
             }
             case LCM_VAR: {
@@ -276,111 +270,136 @@ static void emit_impl_struct(lcmgen_t *lcmgen, FILE *f, lcm_struct_t *lcm_struct
     free(type_name);
 }
 
+static void emit_impl_message_hash(FILE *f, lcm_struct_t *lcm_struct) {
+    emit(1,     "fn hash() -> u64 {");
+    emit(2,         "let hash = 0x%016"PRIx64";", lcm_struct->hash);
+    emit(2,         "(hash << 1) + ((hash >> 63) & 1)");
+    emit(1,     "}");
+    emit(0, "");
+}
+
+static void emit_impl_message_encode(FILE *f, lcm_struct_t *lcm_struct) {
+    unsigned int n_members = g_ptr_array_size(lcm_struct->members);
+    emit(1, "fn encode(&self, %s: &mut Write) -> Result<()> {", n_members ? "mut buffer" : "_");
+    for (unsigned int mind = 0; mind < n_members; mind++) {
+        lcm_member_t *member = (lcm_member_t *) g_ptr_array_index(lcm_struct->members, mind);
+        int ndim = g_ptr_array_size(member->dimensions);
+
+        emit(2, "let item = &self.%s;", member->membername);
+        for (unsigned int d = 0; d != ndim; ++d) {
+            lcm_dimension_t *dimension = (lcm_dimension_t *) g_ptr_array_index(member->dimensions, d);
+            emit(2+d, "for item in item.iter() {");
+        }
+        emit(2+ndim, "item.encode(&mut buffer)?;");
+        for (unsigned int d = ndim; d-- != 0; ) {
+            emit(2+d, "}");
+        }
+    }
+    emit(2, "Ok(())");
+    emit(1, "}");
+    emit(0, "");
+}
+
+static void emit_impl_message_decode_recursive(FILE *f, lcm_member_t *member, unsigned int dim) {
+    if (dim == g_ptr_array_size(member->dimensions)) {
+        emit_end("");
+        emit_start(3+dim, "Message::decode(&mut buffer)");
+
+        if (dim == 0 || ((lcm_dimension_t*)g_ptr_array_index(member->dimensions, dim-1))->mode == LCM_CONST) {
+            emit_continue("?");
+        }
+
+        return;
+    }
+   
+    lcm_dimension_t *dimension = (lcm_dimension_t*) g_ptr_array_index(member->dimensions, dim);
+    switch (dimension->mode) {
+    case LCM_CONST: {
+        emit_continue("[");
+        int size;
+        sscanf(dimension->size, "%d", &size);
+        for (int i = 0; i != size; ++i) {
+            emit_impl_message_decode_recursive(f, member, dim+1);
+            emit_continue(",");
+        }
+        emit_end("");
+        emit_start(2+dim, "]");
+        break;
+    }
+    case LCM_VAR: {
+        emit_end("");
+        emit_start(3+dim, "(0..%s).map(|_| {", dimension->size);
+        emit_impl_message_decode_recursive(f, member, dim+1);
+        emit_end("");
+        emit_start(3+dim, "}).collect::<Result<_>>()");
+        
+        if (dim == 0 || ((lcm_dimension_t*)g_ptr_array_index(member->dimensions, dim-1))->mode == LCM_CONST) {
+            emit_continue("?");
+        }
+        break;
+    }
+    }
+}
+
+static void emit_impl_message_decode(FILE *f, lcm_struct_t *lcm_struct) {
+    unsigned int n_members = g_ptr_array_size(lcm_struct->members);
+
+    emit(1, "fn decode(%s: &mut Read) -> Result<Self> {", n_members ? "mut buffer" : "_");
+    for (unsigned int mind = 0; mind < n_members; mind++) {
+        lcm_member_t *member = (lcm_member_t *) g_ptr_array_index(lcm_struct->members, mind);
+        int ndim = g_ptr_array_size(member->dimensions);
+
+        emit_start(2, "let %s = ", member->membername);
+        emit_impl_message_decode_recursive(f, member, 0);
+        emit_end(";");
+        emit(0, "");
+    }
+
+    emit(2, "Ok(Self {");
+    for (unsigned int mind = 0; mind < g_ptr_array_size(lcm_struct->members); mind++) {
+        lcm_member_t *member = (lcm_member_t *) g_ptr_array_index(lcm_struct->members, mind);
+
+        emit(3, "%s: %s,", member->membername, member->membername);
+    }
+    emit(2, "})");
+    emit(1, "}");
+    emit(0, "");
+}
+
+static void emit_impl_message_size(FILE *f, lcm_struct_t *lcm_struct) {
+    emit(1, "fn size(&self) -> usize {");
+    emit(2, "0");
+    for (unsigned int mind = 0; mind < g_ptr_array_size(lcm_struct->members); mind++) {
+        lcm_member_t *member = (lcm_member_t *) g_ptr_array_index(lcm_struct->members, mind);
+        int ndim = g_ptr_array_size(member->dimensions);
+        
+        emit_start(2, "+ self.%s", member->membername);
+        if (ndim > 0) {
+            for (unsigned int d = 0; d != ndim; ++d) {
+                if (d == 0) {
+                    emit_continue(".iter()");
+                } else {
+                    emit_continue(".flat_map(IntoIterator::into_iter)");
+                }
+            }
+            emit_end(".map(Message::size).sum::<usize>()");
+        } else {
+            emit_end(".size()");
+        }
+    }
+    emit(1, "}");
+}
+
 static void emit_impl_message(lcmgen_t *lcmgen, FILE *f, lcm_struct_t *lcm_struct)
 {
     char *type_name = make_rust_type_name(lcm_struct->structname);
 
-    emit(0, "impl lcm::Message for %s {", type_name);
+    emit(0, "impl Message for %s {", type_name);
 
-    emit(1,     "fn hash(&self) -> i64 {");
-    emit(2,         "let hash = 0x%016"PRIx64";", lcm_struct->hash);
-    emit(2,         "(hash << 1) + ((hash >> 63) & 1)");
-    emit(1,     "}");
-
-    emit(0, "");
-
-    emit(1, "fn encode(&self, mut buffer: &mut Write) -> Result<()> {");
-    for (unsigned int mind = 0; mind < g_ptr_array_size(lcm_struct->members); mind++) {
-        lcm_member_t *member = (lcm_member_t *) g_ptr_array_index(lcm_struct->members, mind);
-        emit(2, "self.%s.encode(&mut buffer)?;", member->membername);
-    }
-    emit(2, "Ok(())");
-    emit(1, "}");
-
-    emit(0, "");
-
-    emit(1, "fn decode(&mut self, mut buffer: &mut Read) -> Result<()> {");
-    for (unsigned int mind = 0; mind < g_ptr_array_size(lcm_struct->members); mind++) {
-        lcm_member_t *member = (lcm_member_t *) g_ptr_array_index(lcm_struct->members, mind);
-
-        // Arrays encodings are not length prefixed,
-        // so if this is a dynamically sized array we need
-        // to initialize it with the correct capacity.
-        int ndim = g_ptr_array_size(member->dimensions);
-
-        for (unsigned int d = 0; d != ndim; ++d) {
-            lcm_dimension_t *dimension = (lcm_dimension_t *) g_ptr_array_index(member->dimensions, d);
-            if (dimension->mode == LCM_VAR) {
-                    emit(2, "let size_%d = self.%s as usize;", d, dimension->size);
-            }
-        }
-
-        for (unsigned int d = 0; d != ndim; ++d) {
-            lcm_dimension_t *dimension = (lcm_dimension_t *) g_ptr_array_index(member->dimensions, d);
-            if (dimension->mode == LCM_VAR) {
-                if (d == 0) {
-                    emit(2, "self.%s = Vec::with_capacity(size_%d);", member->membername, d);
-                } else {
-                    emit(2+d, "*value_%d = Vec::with_capacity(size_%d);", d, d);
-                }
-            }
-
-            if (d == 0) {
-                emit(2, "for value_%d in self.%s.iter_mut() {", d+1, member->membername);
-            } else {
-                emit(2+d, "for value_%d in value_%d.iter_mut() {", d+1, d);
-            }
-            /*         for (unsigned int d_sub = 0; d_sub != d; ++d_sub) { */
-            /*             emit(2+d_sub, "for v in self.%s.iter_mut() {", member->membername); */
-            /*             emit(3+d_sub, "*v = Vec::with_capacity(size_%d);", d); */
-            /*             emit(2+d_sub, "}"); */
-            /*         } */
-            /*     } */
-            /* } */
-        }
-
-        if (ndim == 0) {
-            emit(2, "self.%s.decode(&mut buffer)?;", member->membername);
-        } else {
-            emit(2+ndim, "value_%d.decode(&mut buffer)?;", ndim);
-        }
-
-        for (unsigned int d = ndim; d-- > 0; ) {
-            emit(2+d, "}");
-        }
-
-#if 0
-        if (ndim == 0) {
-            // Nothing to do; this is not an array.
-        } else {
-            lcm_dimension_t *dimension = (lcm_dimension_t *) g_ptr_array_index(member->dimensions, 0);
-            if (lcm_is_constant_size_array(member)) {
-                // Nothing to do; array size is know at compile time.
-            } else {
-                emit(2, "let len = self.%s as usize;", dimension->size);
-                emit(2, "if len > MAX_VEC_SIZE { return Err(Error::new(ErrorKind::Other, \"Array size too large\")); }");
-                emit(2, "self.%s = Vec::with_capacity(len as usize);", member->membername);
-            }
-        }
-#endif
-
-        // emit(2, "self.%s.decode(&mut buffer)?;", member->membername);
-    }
-    emit(2, "Ok(())");
-    // emit(2, ")");
-    // emit(2, "Err(Error::new(ErrorKind::Other, \"Unimplemented\"))");
-    emit(1, "}");
-
-    emit(0, "");
-
-    emit(1, "fn size(&self) -> usize {");
-    emit(2, "0");
-    for (unsigned int mind = 0; mind < g_ptr_array_size(lcm_struct->members); mind++) {
-        lcm_member_t *lm = (lcm_member_t *) g_ptr_array_index(lcm_struct->members, mind);
-        char *mn = lm->membername;
-        emit(2, "+ self.%s.size()", mn);
-    }
-    emit(1, "}");
+    emit_impl_message_hash(f, lcm_struct);
+    emit_impl_message_encode(f, lcm_struct);
+    emit_impl_message_decode(f, lcm_struct);
+    emit_impl_message_size(f, lcm_struct);
 
     emit(0, "}");
     emit(0, "");

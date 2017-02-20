@@ -342,6 +342,7 @@ static void emit_impl_message_decode_recursive(FILE *f, lcm_member_t *member, un
 }
 
 static void emit_impl_message_decode(FILE *f, lcm_struct_t *lcm_struct) {
+    char *type_name = make_rust_type_name(lcm_struct->structname);
     unsigned int n_members = g_ptr_array_size(lcm_struct->members);
 
     emit(1, "fn decode(%s: &mut Read) -> Result<Self> {", n_members ? "mut buffer" : "_");
@@ -355,7 +356,7 @@ static void emit_impl_message_decode(FILE *f, lcm_struct_t *lcm_struct) {
         emit(0, "");
     }
 
-    emit(2, "Ok(Self {");
+    emit(2, "Ok(%s {", type_name);
     for (unsigned int mind = 0; mind < g_ptr_array_size(lcm_struct->members); mind++) {
         lcm_member_t *member = (lcm_member_t *) g_ptr_array_index(lcm_struct->members, mind);
 
@@ -364,6 +365,8 @@ static void emit_impl_message_decode(FILE *f, lcm_struct_t *lcm_struct) {
     emit(2, "})");
     emit(1, "}");
     emit(0, "");
+
+    free(type_name);
 }
 
 static void emit_impl_message_size(FILE *f, lcm_struct_t *lcm_struct) {

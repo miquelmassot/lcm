@@ -107,15 +107,14 @@ impl Lcm {
         let channel = CString::new(channel).unwrap();
 
         let handler = Box::new(move |rbuf: *const CLcmRecvBuf| {
-            let mut msg = M::default();
             let buf = unsafe {
                 let ref rbuf = *rbuf;
                 let data = rbuf.data as *mut u8;
                 let len = rbuf.data_size as usize;
                 Vec::from_raw_parts(data, len, len)
             };
-            match msg.decode_with_hash(&mut buf.as_slice()) {
-                Ok(()) => callback(msg),
+            match M::decode_with_hash(&mut buf.as_slice()) {
+                Ok(msg) => callback(msg),
                 Err(_) => {}
             }
         });
@@ -171,7 +170,7 @@ impl Lcm {
     ///
     /// lcm.publish("POSITION", &my_data).unwrap();
     /// ```
-    pub fn publish(&mut self, channel: &str, message: &Message) -> Result<()> {
+    pub fn publish<M>(&mut self, channel: &str, message: &M) -> Result<()> where M: Message + Sized {
         let channel = CString::new(channel).unwrap();
         let buffer = message.encode_with_hash()?;
         let datalen = buffer.len() as libc::c_uint;

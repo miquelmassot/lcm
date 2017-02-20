@@ -7,8 +7,8 @@ use std::default::Default;
 /// A message that can be encoded and decoded according to the LCM protocol.
 pub trait Message {
     /// Encodes a message into a buffer, with the message hash at the beginning.
-    fn encode_with_hash(&self) -> Result<Vec<u8>> {
-        let hash = self.hash();
+    fn encode_with_hash(&self) -> Result<Vec<u8>> where Self: Sized {
+        let hash = Self::hash();
         let size = hash.size() + self.size();
         let mut buffer = Vec::with_capacity(size);
         hash.encode(&mut buffer)?;
@@ -18,22 +18,20 @@ pub trait Message {
 
     /// Decodes a message from a buffer,
     /// and also checks that the hash at the beginning is correct.
-    fn decode_with_hash(&mut self, mut buffer: &mut Read) -> Result<()>
-        where Self: Sized + Default
+    fn decode_with_hash(mut buffer: &mut Read) -> Result<Self>
+        where Self: Sized
     {
-
-        let mut hash: i64 = 0;
-        hash.decode(&mut buffer)?;
-        if hash != self.hash() {
+        let hash: u64 = Message::decode(&mut buffer)?;
+        if hash != Self::hash() {
             return Err(Error::new(ErrorKind::Other, "Invalid hash"));
         }
-        self.decode(buffer)
+        Message::decode(buffer)
     }
 
     /// Returns the message hash for this type.
     /// Returns `0` for all primitive types.
     /// Generated `Lcm` types should implement this function.
-    fn hash(&self) -> i64 {
+    fn hash() -> u64 where Self: Sized {
         0
     }
 
@@ -42,7 +40,7 @@ pub trait Message {
     fn encode(&self, buffer: &mut Write) -> Result<()>;
 
     /// Decodes a message from a buffer.
-    fn decode(&mut self, buffer: &mut Read) -> Result<()>;
+    fn decode(buffer: &mut Read) -> Result<Self> where Self: Sized;
 
     /// Returns the number of bytes this message is expected to take when encoded.
     fn size(&self) -> usize;

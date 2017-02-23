@@ -7,6 +7,7 @@ use std::ptr;
 use std::boxed::Box;
 use std::rc::Rc;
 use std::ops::Deref;
+use std::slice;
 
 enum CLcm {}
 
@@ -107,13 +108,13 @@ impl Lcm {
         let channel = CString::new(channel).unwrap();
 
         let handler = Box::new(move |rbuf: *const CLcmRecvBuf| {
-            let buf = unsafe {
+            let mut buf = unsafe {
                 let ref rbuf = *rbuf;
                 let data = rbuf.data as *mut u8;
                 let len = rbuf.data_size as usize;
-                Vec::from_raw_parts(data, len, len)
+                slice::from_raw_parts(data, len)
             };
-            match M::decode_with_hash(&mut buf.as_slice()) {
+            match M::decode_with_hash(&mut buf) {
                 Ok(msg) => callback(msg),
                 Err(_) => {}
             }

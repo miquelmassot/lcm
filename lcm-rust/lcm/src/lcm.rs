@@ -1,6 +1,12 @@
+#![allow(dead_code)]
+#![allow(improper_ctypes)]
+#![allow(non_camel_case_types)]
+#![allow(non_snake_case)]
+#![allow(non_upper_case_globals)]
+include!(concat!(env!("OUT_DIR"), "/lcm-bindings.rs"));
+
 use std::io::{Error, ErrorKind, Result};
 use std::ffi::CString;
-use libc;
 use message::Message;
 use std::cmp::Ordering;
 use std::ptr;
@@ -9,63 +15,19 @@ use std::rc::Rc;
 use std::ops::Deref;
 use std::slice;
 
-enum CLcm {}
-
 /// An LCM instance that hnadles publishing and subscribing,
 /// as well as encoding and decoding messages.
 pub struct Lcm {
-    lcm: *mut CLcm,
+    lcm: *mut lcm_t,
     subscriptions: Vec<Rc<LcmSubscription>>,
 }
 
-type CLcmHandler = extern "C" fn(*const CLcmRecvBuf, *const libc::c_char, *const libc::c_void);
 
-#[derive(Eq, PartialEq, Hash)]
-enum CLcmSubscription {}
 pub struct LcmSubscription {
-    subscription: *mut CLcmSubscription,
-    handler: Box<FnMut(*const CLcmRecvBuf)>,
+    subscription: *mut lcm_subscription_t,
+    handler: Box<FnMut(*const lcm_recv_buf_t)>,
 }
 
-#[repr(C)]
-#[derive(Debug)]
-struct CLcmRecvBuf {
-    data: *const libc::c_void,
-    data_size: libc::uint32_t,
-    recv_utime: libc::int64_t,
-    lcm: *const CLcm,
-}
-
-#[link(name = "lcm")]
-extern "C" {
-    fn lcm_create(provider: *const libc::c_char) -> *mut CLcm;
-
-    fn lcm_destroy(lcm: *mut CLcm);
-
-    fn lcm_get_fileno(lcm: *mut CLcm) -> libc::c_int;
-
-    fn lcm_subscribe(lcm: *mut CLcm,
-                     channel: *const libc::c_char,
-                     handler: CLcmHandler,
-                     userdata: *const libc::c_void)
-                     -> *mut CLcmSubscription;
-
-    fn lcm_unsubscribe(lcm: *mut CLcm, handler: *const CLcmSubscription) -> libc::c_int;
-
-    fn lcm_publish(lcm: *mut CLcm,
-                   channel: *const libc::c_char,
-                   data: *const libc::c_void,
-                   datalen: libc::c_uint)
-                   -> libc::c_int;
-
-    fn lcm_handle(lcm: *mut CLcm) -> libc::c_int;
-
-    fn lcm_handle_timeout(lcm: *mut CLcm, timeout_millis: libc::c_int) -> libc::c_int;
-
-    fn lcm_subscription_set_queue_capacity(handler: *const CLcmSubscription,
-                                           num_messages: libc::c_int)
-                                           -> libc::c_int;
-}
 
 impl Lcm {
     /// Creates a new `Lcm` instance.
@@ -75,6 +37,7 @@ impl Lcm {
     /// let mut lcm = Lcm::new().unwrap();
     /// ```
     pub fn new() -> Result<Lcm> {
+        trace!("Creating LCM instance");
         let lcm = unsafe { lcm_create(ptr::null()) };
         match lcm.is_null() {
             true => Err(Error::new(ErrorKind::Other, "Failed to initialize LCM.")),
@@ -87,7 +50,7 @@ impl Lcm {
         }
     }
 
-    pub fn get_fileno(&self) -> libc::c_int {
+    pub fn get_fileno(&self) -> ::std::os::raw::c_int {
         unsafe { lcm_get_fileno(self.lcm) }
     }
 
@@ -105,18 +68,22 @@ impl Lcm {
         where M: Message + Default,
               F: FnMut(M) + 'static
     {
+        trace!("Subscribing handler to channel {}", channel);
+
         let channel = CString::new(channel).unwrap();
 
-        let handler = Box::new(move |rbuf: *const CLcmRecvBuf| {
+        let handler = Box::new(move |rbuf: *const lcm_recv_buf_t| {
+            trace!("Running handler");
             let mut buf = unsafe {
                 let ref rbuf = *rbuf;
                 let data = rbuf.data as *mut u8;
                 let len = rbuf.data_size as usize;
                 slice::from_raw_parts(data, len)
             };
+            trace!("Decoding buffer: {:?}", buf);
             match M::decode_with_hash(&mut buf) {
                 Ok(msg) => callback(msg),
-                Err(_) => {}
+                Err(_) => error!("Failed to decode buffer: {:?}", buf),
             }
         });
 
@@ -125,12 +92,12 @@ impl Lcm {
             handler: handler,
         });
 
-        let user_data = (subscription.deref() as *const LcmSubscription) as *const libc::c_void;
+        let user_data = (subscription.deref() as *const _) as *mut _;
 
         let c_subscription = unsafe {
             lcm_subscribe(self.lcm,
                           channel.as_ptr(),
-                          Lcm::handler_callback::<M>,
+                          Some(Lcm::handler_callback::<M>),
                           user_data)
         };
 
@@ -150,6 +117,7 @@ impl Lcm {
     /// lcm.unsubscribe(handler);
     /// ```
     pub fn unsubscribe(&mut self, handler: LcmSubscription) -> Result<()> {
+        trace!("Unsubscribing handler {:?}", handler.subscription);
         let result = unsafe { lcm_unsubscribe(self.lcm, handler.subscription) };
         match result {
             0 => Ok(()),
@@ -171,15 +139,16 @@ impl Lcm {
     ///
     /// lcm.publish("POSITION", &my_data).unwrap();
     /// ```
-    pub fn publish<M>(&mut self, channel: &str, message: &M) -> Result<()> where M: Message + Sized {
+    pub fn publish<M>(&mut self, channel: &str, message: &M) -> Result<()>
+        where M: Message + Sized
+    {
         let channel = CString::new(channel).unwrap();
         let buffer = message.encode_with_hash()?;
-        let datalen = buffer.len() as libc::c_uint;
         let result = unsafe {
             lcm_publish(self.lcm,
                         channel.as_ptr(),
-                        buffer.as_ptr() as *mut libc::c_void,
-                        datalen)
+                        buffer.as_ptr() as *mut _,
+                        buffer.len() as _)
         };
         match result {
             0 => Ok(()),
@@ -216,7 +185,7 @@ impl Lcm {
     /// }
     /// ```
     pub fn handle_timeout(&mut self, timeout_millis: i64) -> Result<()> {
-        let timeout = timeout_millis as libc::c_int;
+        let timeout = timeout_millis as _;
         let result = unsafe { lcm_handle_timeout(self.lcm, timeout) };
         match result.cmp(&0) {
             Ordering::Less => Err(Error::new(ErrorKind::Other, "LCM Error")),
@@ -236,18 +205,18 @@ impl Lcm {
     /// ```
     pub fn subscription_set_queue_capacity(handler: Rc<LcmSubscription>, num_messages: usize) {
         let handler = handler.subscription;
-        let num_messages = num_messages as libc::c_int;
+        let num_messages = num_messages as _;
         unsafe { lcm_subscription_set_queue_capacity(handler, num_messages) };
     }
 
 
 
-    extern "C" fn handler_callback<M>(rbuf: *const CLcmRecvBuf,
-                                      _: *const libc::c_char,
-                                      user_data: *const libc::c_void)
+    extern "C" fn handler_callback<M>(rbuf: *const lcm_recv_buf_t,
+                                      _: *const ::std::os::raw::c_char,
+                                      user_data: *mut ::std::os::raw::c_void)
         where M: Message
     {
-
+        trace!("Received data");
         let sub = user_data as *mut LcmSubscription;
         let sub = unsafe { &mut *sub };
         (sub.handler)(rbuf);
@@ -256,6 +225,7 @@ impl Lcm {
 
 impl Drop for Lcm {
     fn drop(&mut self) {
+        trace!("Destroying Lcm instance");
         unsafe { lcm_destroy(self.lcm) };
     }
 }

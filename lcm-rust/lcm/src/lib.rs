@@ -10,7 +10,9 @@
 //! See also the `lcm-gen` crate, for running `lcmgen` at build time.
 
 extern crate byteorder;
-extern crate libc;
+
+#[macro_use]
+extern crate log;
 
 mod lcm;
 pub use lcm::Lcm;

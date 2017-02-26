@@ -15,7 +15,7 @@ use std::rc::Rc;
 use std::ops::Deref;
 use std::slice;
 
-/// An LCM instance that hnadles publishing and subscribing,
+/// An LCM instance that handles publishing and subscribing,
 /// as well as encoding and decoding messages.
 pub struct Lcm {
     lcm: *mut lcm_t,

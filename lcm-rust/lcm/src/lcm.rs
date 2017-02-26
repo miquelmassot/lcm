@@ -66,7 +66,7 @@ impl Lcm {
     /// lcm.subscribe("POSITION", |pos| { tx.send(pos).unwrap(); }
     /// ```
     pub fn subscribe<M, F>(&mut self, channel: &str, mut callback: Box<F>) -> Rc<LcmSubscription>
-        where M: Message + Default,
+        where M: Message,
               F: FnMut(M) + 'static
     {
         trace!("Subscribing handler to channel {}", channel);
@@ -141,7 +141,7 @@ impl Lcm {
     /// lcm.publish("POSITION", &my_data).unwrap();
     /// ```
     pub fn publish<M>(&mut self, channel: &str, message: &M) -> Result<()>
-        where M: Message + Sized
+        where M: Message
     {
         let channel = CString::new(channel).unwrap();
         let buffer = message.encode_with_hash()?;

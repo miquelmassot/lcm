@@ -202,7 +202,7 @@ static void emit_struct_def(lcmgen_t *lcmgen, FILE *f, lcm_struct_t *lcm_struct)
     char *struct_name = make_rust_type_name(lcm_struct->structname);
 
     if (lcm_struct->comment != NULL) {
-        emit(0, "/// %s", lcm_struct->comment);
+        emit(0, "/* %s */", lcm_struct->comment);
     }
     emit(0, "#[derive(Debug, Default)]");
     emit(0, "pub struct %s {", struct_name);
@@ -215,7 +215,7 @@ static void emit_struct_def(lcmgen_t *lcmgen, FILE *f, lcm_struct_t *lcm_struct)
 
         int ndim = g_ptr_array_size(member->dimensions);
         if (member->comment != NULL) {
-            emit(1, "/// %s", member->comment);
+            emit(1, "/* %s */", member->comment);
         }
         emit_start(1, "pub %s: ", member->membername);
 

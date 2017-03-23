@@ -16,4 +16,4 @@ log = "0.3"
 time = "0.1"
 
 [build-dependencies]
-bindgen = "*"
+bindgen = "0.22"

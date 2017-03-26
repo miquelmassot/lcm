@@ -14,7 +14,7 @@ use std::boxed::Box;
 use std::rc::Rc;
 use std::ops::Deref;
 use std::slice;
-use time::Duration;
+use std::time::Duration;
 
 /// An LCM instance that handles publishing and subscribing,
 /// as well as encoding and decoding messages.
@@ -182,11 +182,11 @@ impl Lcm {
     /// let mut lcm = Lcm::new().unwrap();
     /// lcm.subscribe("POSITION", handler_function);
     /// loop {
-    ///     lcm.handle_timeout(1000).unwrap();
+    ///     lcm.handle_timeout(Duration::from_millis(1000)).unwrap();
     /// }
     /// ```
-    pub fn handle_timeout(&mut self, timeout: &Duration) -> Result<()> {
-        let result = unsafe { lcm_handle_timeout(self.lcm, timeout.num_milliseconds() as i32) };
+    pub fn handle_timeout(&mut self, timeout: Duration) -> Result<()> {
+        let result = unsafe { lcm_handle_timeout(self.lcm, (timeout.as_secs() * 1000) as i32 + (timeout.subsec_nanos() / 1000_000) as i32) };
         match result.cmp(&0) {
             Ordering::Less => Err(Error::new(ErrorKind::Other, "LCM Error")),
             Ordering::Equal => Err(Error::new(ErrorKind::Other, "LCM Timeout")),

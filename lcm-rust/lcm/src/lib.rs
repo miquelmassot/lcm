@@ -14,8 +14,6 @@ extern crate byteorder;
 #[macro_use]
 extern crate log;
 
-extern crate time;
-
 mod lcm;
 pub use lcm::Lcm;
 

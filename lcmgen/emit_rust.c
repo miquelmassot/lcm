@@ -63,7 +63,7 @@ static char* make_rust_mod_file_name(const char* prefix, const lcm_struct_t* lcm
     strcat(result, prefix);
     strcat(result, "/");
     strcat(result, package_name);
-    for (char* c = result; *c != 0; ++c) {
+    for (char* c = result + strlen(prefix); *c != 0; ++c) {
         if (*c == '.') {
             *c = '/';
         }

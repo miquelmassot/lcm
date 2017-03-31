@@ -16,6 +16,7 @@ extern crate log;
 
 extern crate time;
 
+mod ffi;
 mod lcm;
 pub use lcm::Lcm;
 

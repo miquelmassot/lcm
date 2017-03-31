@@ -1,10 +1,3 @@
-#![allow(dead_code)]
-#![allow(improper_ctypes)]
-#![allow(non_camel_case_types)]
-#![allow(non_snake_case)]
-#![allow(non_upper_case_globals)]
-include!(concat!(env!("OUT_DIR"), "/lcm-bindings.rs"));
-
 use std::io::{Error, ErrorKind, Result};
 use std::ffi::CString;
 use message::Message;
@@ -15,6 +8,8 @@ use std::rc::Rc;
 use std::ops::Deref;
 use std::slice;
 use time::Duration;
+
+use ffi::*;
 
 /// An LCM instance that handles publishing and subscribing,
 /// as well as encoding and decoding messages.

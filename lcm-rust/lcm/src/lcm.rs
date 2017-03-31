@@ -60,7 +60,7 @@ impl Lcm {
     /// let (tx, rx) = channel::<exlcm::Example>();
     /// lcm.subscribe("POSITION", |pos| { tx.send(pos).unwrap(); }
     /// ```
-    pub fn subscribe<M, F>(&mut self, channel: &str, mut callback: Box<F>) -> Rc<LcmSubscription>
+    pub fn subscribe<M, F>(&mut self, channel: &str, mut callback: F) -> Rc<LcmSubscription>
         where M: Message,
               F: FnMut(M) + 'static
     {

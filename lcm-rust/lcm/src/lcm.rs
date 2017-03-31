@@ -7,7 +7,7 @@ use std::boxed::Box;
 use std::rc::Rc;
 use std::ops::Deref;
 use std::slice;
-use time::Duration;
+use std::time::Duration;
 
 use ffi::*;
 
@@ -181,7 +181,8 @@ impl Lcm {
     /// }
     /// ```
     pub fn handle_timeout(&mut self, timeout: &Duration) -> Result<()> {
-        let result = unsafe { lcm_handle_timeout(self.lcm, timeout.num_milliseconds() as i32) };
+        let millis = (timeout.as_secs() * 1000) as i32 + (timeout.subsec_nanos() / 1_000_000) as i32;
+        let result = unsafe { lcm_handle_timeout(self.lcm, millis) };
         match result.cmp(&0) {
             Ordering::Less => Err(Error::new(ErrorKind::Other, "LCM Error")),
             Ordering::Equal => Err(Error::new(ErrorKind::Other, "LCM Timeout")),

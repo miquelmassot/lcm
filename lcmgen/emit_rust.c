@@ -19,7 +19,6 @@
 void setup_rust_options(getopt_t *gopt)
 {
     getopt_add_string (gopt, 0, "rust-path",    ".",      "Location for .rs files");
-    getopt_add_bool(gopt, 0, "rustdoc", 0, "Generate rustdoc style comments");
 }
 
 static char *dots_to_slashes(const char *s)
@@ -236,7 +235,7 @@ static void emit_header_start(lcmgen_t *lcmgen, FILE *f)
     emit(0, "use std::io::{Result, Read, Write};");
 }
 
-static void emit_struct_def(lcmgen_t *lcmgen, FILE *f, lcm_struct_t *lcm_struct, int rustdoc)
+static void emit_struct_def(lcmgen_t *lcmgen, FILE *f, lcm_struct_t *lcm_struct)
 {
     char *struct_name = make_rust_type_name(lcm_struct->structname);
 
@@ -261,13 +260,9 @@ static void emit_struct_def(lcmgen_t *lcmgen, FILE *f, lcm_struct_t *lcm_struct,
             assert(lcm_is_legal_const_type(lc->lctypename));
 
             if (lc->comment != NULL) {
-                if (!rustdoc) {
-                    emit(0, "/* %s */", lc->comment);
-                } else {
-                    char *comment = make_rustdoc_comment(lc->comment);
-                    emit(0, "%s", comment);
-                    free(comment);
-                }
+                char *comment = make_rustdoc_comment(lc->comment);
+                emit(0, "%s", comment);
+                free(comment);
             }
 
             char *mapped_typename = map_lcm_primative(lc->lctypename);
@@ -279,13 +274,9 @@ static void emit_struct_def(lcmgen_t *lcmgen, FILE *f, lcm_struct_t *lcm_struct,
 
     // The struct
     if (lcm_struct->comment != NULL) {
-        if (!rustdoc) {
-            emit(0, "/* %s */", lcm_struct->comment);
-        } else {
-            char *comment = make_rustdoc_comment(lcm_struct->comment);
-            emit(0, "%s", comment);
-            free(comment);
-        }
+        char *comment = make_rustdoc_comment(lcm_struct->comment);
+        emit(0, "%s", comment);
+        free(comment);
     }
     emit(0, "#[derive(Debug, Default)]");
     emit(0, "pub struct %s {", struct_name);
@@ -298,13 +289,9 @@ static void emit_struct_def(lcmgen_t *lcmgen, FILE *f, lcm_struct_t *lcm_struct,
 
         int ndim = g_ptr_array_size(member->dimensions);
         if (member->comment != NULL) {
-            if (!rustdoc) {
-                emit(1, "/* %s */", member->comment);
-            } else {
-                char *comment = make_rustdoc_comment(member->comment);
-                emit(1, "%s", comment);
-                free(comment);
-            }
+            char *comment = make_rustdoc_comment(member->comment);
+            emit(1, "%s", comment);
+            free(comment);
         }
         emit_start(1, "pub %s: ", member->membername);
 
@@ -509,11 +496,7 @@ int emit_rust(lcmgen_t *lcmgen)
 {
     // compute the target filename
     char *rust_path = getopt_get_string(lcmgen->gopt, "rust-path");
-    int rustdoc = getopt_get_bool(lcmgen->gopt, "rustdoc");
     printf("rust-path: %s\n", rust_path);
-    if (rustdoc) {
-        printf("Using rustdoc style comments\n");
-    }
 
     // Remove mod.rs for each module
     for (unsigned int i = 0; i < g_ptr_array_size(lcmgen->structs); ++i) {
@@ -559,7 +542,7 @@ int emit_rust(lcmgen_t *lcmgen)
             return -1;
         }
 
-        emit_struct_def(lcmgen, f, lcm_struct, rustdoc);
+        emit_struct_def(lcmgen, f, lcm_struct);
 
         fclose(f);
         free(modfile_name);

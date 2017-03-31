@@ -5,4 +5,4 @@ authors = ["Anthony Deschamps <anthony.j.deschamps@gmail.com>"]
 
 [dependencies]
 byteorder = "0.5"
-log = "*"
+log = { version = "*", optional = true }

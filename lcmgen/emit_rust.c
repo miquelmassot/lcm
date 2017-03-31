@@ -194,16 +194,29 @@ static void emit_header_start(lcmgen_t *lcmgen, FILE *f)
     emit(0, "");
     emit(0, "use lcm::Message;");
     emit(0, "use std::io::{Result, Read, Write};");
-    emit(0, "");
 }
 
 static void emit_struct_def(lcmgen_t *lcmgen, FILE *f, lcm_struct_t *lcm_struct)
 {
     char *struct_name = make_rust_type_name(lcm_struct->structname);
 
+    // Include non-primitive types - assuming they're in the same parent module as this
+    for (unsigned int mind = 0; mind < g_ptr_array_size(lcm_struct->members); mind++) {
+        lcm_member_t *lm = (lcm_member_t *)g_ptr_array_index(lcm_struct->members, mind);
+        if (!lcm_is_primitive_type(lm->type->lctypename) && 
+            strcmp(lm->type->lctypename, lcm_struct->structname->lctypename)) {
+            char *mapped_tn = map_type_name(lm->type);
+            char *other_pn = dots_to_double_colons(lm->type->package);
+            emit(0, "use super::%s::%s;", other_pn, mapped_tn);
+            free(other_pn);
+            free(mapped_tn);
+        }
+    }
+
     if (lcm_struct->comment != NULL) {
         emit(0, "/* %s */", lcm_struct->comment);
     }
+    emit(0, "");
     emit(0, "#[derive(Debug, Default)]");
     emit(0, "pub struct %s {", struct_name);
 

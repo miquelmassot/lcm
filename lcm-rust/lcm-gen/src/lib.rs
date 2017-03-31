@@ -32,6 +32,7 @@ use std::process::Command;
 pub struct LcmGen {
     files: Vec<PathBuf>,
     out_dir: PathBuf,
+    rustdoc: bool,
 }
 
 impl LcmGen {
@@ -40,6 +41,7 @@ impl LcmGen {
         LcmGen {
             files: Vec::new(),
             out_dir: env::var("OUT_DIR").unwrap().into(),
+            rustdoc: false,
         }
     }
 
@@ -67,6 +69,12 @@ impl LcmGen {
         self
     }
 
+    /// Sets whether file should use rustdoc style documentation
+    pub fn use_rustdoc(&mut self, rustdoc: bool) -> &Self {
+        self.rustdoc = rustdoc;
+        self
+    }
+
     /// Runs `lcm-gen --rust --rust-path={}` on each `.lcm` file that was added.
     pub fn run(&self) {
         // Rerun if the lcm-gen binary changes
@@ -82,6 +90,9 @@ impl LcmGen {
         let mut cmd = Command::new("lcm-gen");
         cmd.arg("--rust")
             .arg(format!("--rust-path={}", self.out_dir.display()));
+        if self.rustdoc {
+            cmd.arg("--rustdoc");
+        }
         for path in &self.files {
             println!("cargo:rerun-if-changed={}", path.display());
             cmd.arg(path);

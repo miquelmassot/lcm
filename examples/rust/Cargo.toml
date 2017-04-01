@@ -1,5 +1,5 @@
 [package]
-name = "rust"
+name = "rust-example"
 version = "0.1.0"
 authors = ["Anthony Deschamps <anthony.j.deschamps@gmail.com>"]
 build = "build.rs"

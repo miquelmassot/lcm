@@ -227,26 +227,28 @@ impl Drop for Lcm {
 
 
 
+#[cfg(test)]
 ///
 /// Tests
 ///
+mod test {
+    #[test]
+    fn initialized() {
+        let _lcm = Lcm::new().unwrap();
+    }
 
-#[test]
-fn initialized() {
-    let _lcm = Lcm::new().unwrap();
-}
+    #[test]
+    fn test_subscribe() {
+        let mut lcm = Lcm::new().unwrap();
+        lcm.subscribe("channel", |_: String| {});
+        assert_eq!(lcm.subscriptions.len(), 1);
+    }
 
-#[test]
-fn test_subscribe() {
-    let mut lcm = Lcm::new().unwrap();
-    lcm.subscribe("channel", |_: String| {});
-    assert_eq!(lcm.subscriptions.len(), 1);
-}
-
-#[test]
-fn test_unsubscribe() {
-    let mut lcm = Lcm::new().unwrap();
-    let sub = lcm.subscribe("channel", |_: String| {});
-    lcm.unsubscribe(sub).unwrap();
-    assert_eq!(lcm.subscriptions.len(), 0);
+    #[test]
+    fn test_unsubscribe() {
+        let mut lcm = Lcm::new().unwrap();
+        let sub = lcm.subscribe("channel", |_: String| {});
+        lcm.unsubscribe(sub).unwrap();
+        assert_eq!(lcm.subscriptions.len(), 0);
+    }
 }

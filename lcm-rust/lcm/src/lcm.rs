@@ -112,7 +112,9 @@ impl Lcm {
     pub fn unsubscribe(&mut self, handler: Rc<LcmSubscription>) -> Result<()> {
         trace!("Unsubscribing handler {:?}", handler.subscription);
         let result = unsafe { lcm_unsubscribe(self.lcm, handler.subscription) };
-        // TODO: Remove subscription from Lcm object
+
+        self.subscriptions.retain(|sub| { sub.subscription != handler.subscription });
+
         match result {
             0 => Ok(()),
             _ => Err(Error::new(ErrorKind::Other, "LCM: Failed to unsubscribe")),
@@ -221,4 +223,30 @@ impl Drop for Lcm {
         trace!("Destroying Lcm instance");
         unsafe { lcm_destroy(self.lcm) };
     }
+}
+
+
+
+///
+/// Tests
+///
+
+#[test]
+fn initialized() {
+    let _lcm = Lcm::new().unwrap();
+}
+
+#[test]
+fn test_subscribe() {
+    let mut lcm = Lcm::new().unwrap();
+    lcm.subscribe("channel", |_: String| {});
+    assert_eq!(lcm.subscriptions.len(), 1);
+}
+
+#[test]
+fn test_unsubscribe() {
+    let mut lcm = Lcm::new().unwrap();
+    let sub = lcm.subscribe("channel", |_: String| {});
+    lcm.unsubscribe(sub).unwrap();
+    assert_eq!(lcm.subscriptions.len(), 0);
 }

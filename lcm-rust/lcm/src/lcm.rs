@@ -1,10 +1,3 @@
-#![allow(dead_code)]
-#![allow(improper_ctypes)]
-#![allow(non_camel_case_types)]
-#![allow(non_snake_case)]
-#![allow(non_upper_case_globals)]
-include!(concat!(env!("OUT_DIR"), "/lcm-bindings.rs"));
-
 use std::io::{Error, ErrorKind, Result};
 use std::ffi::CString;
 use message::Message;
@@ -15,6 +8,7 @@ use std::rc::Rc;
 use std::ops::Deref;
 use std::slice;
 use std::time::Duration;
+use ffi::*;
 
 /// An LCM instance that handles publishing and subscribing,
 /// as well as encoding and decoding messages.
@@ -59,13 +53,10 @@ impl Lcm {
     ///
     /// ```
     /// # use lcm::Lcm;
-    /// use std::sync::mpsc::channel;
-    ///
     /// let mut lcm = Lcm::new().unwrap();
-    /// let (tx, rx) = channel::<exlcm::Example>();
-    /// lcm.subscribe("POSITION", |pos| { tx.send(pos).unwrap(); }
+    /// lcm.subscribe("GREETINGS", |name: String| println!("Hello, {}!", name) );
     /// ```
-    pub fn subscribe<M, F>(&mut self, channel: &str, mut callback: Box<F>) -> Rc<LcmSubscription>
+    pub fn subscribe<M, F>(&mut self, channel: &str, mut callback: F) -> Rc<LcmSubscription>
         where M: Message,
               F: FnMut(M) + 'static
     {
@@ -112,14 +103,16 @@ impl Lcm {
     ///
     /// ```
     /// # use lcm::Lcm;
-    /// let mut lcm = Lcm::new().unwrap();
-    /// let handler = lcm.subscribe("POSITION", handler_function);
+    /// # let handler_function = |name: String| println!("Hello, {}!", name);
+    /// # let mut lcm = Lcm::new().unwrap();
+    /// let handler = lcm.subscribe("GREETINGS", handler_function);
     /// // ...
     /// lcm.unsubscribe(handler);
     /// ```
-    pub fn unsubscribe(&mut self, handler: LcmSubscription) -> Result<()> {
+    pub fn unsubscribe(&mut self, handler: Rc<LcmSubscription>) -> Result<()> {
         trace!("Unsubscribing handler {:?}", handler.subscription);
         let result = unsafe { lcm_unsubscribe(self.lcm, handler.subscription) };
+        // TODO: Remove subscription from Lcm object
         match result {
             0 => Ok(()),
             _ => Err(Error::new(ErrorKind::Other, "LCM: Failed to unsubscribe")),
@@ -131,14 +124,7 @@ impl Lcm {
     /// ```
     /// # use lcm::Lcm;
     /// let mut lcm = Lcm::new().unwrap();
-    ///
-    /// let mut my_data = exlcm::Example::new();
-    /// my_data.timestamp = 0;
-    /// my_data.position[0] = 1.0;
-    /// my_data.position[1] = 2.0;
-    /// my_data.position[2] = 3.0;
-    ///
-    /// lcm.publish("POSITION", &my_data).unwrap();
+    /// lcm.publish("GREETINGS", &"Charles".to_string()).unwrap();
     /// ```
     pub fn publish<M>(&mut self, channel: &str, message: &M) -> Result<()>
         where M: Message
@@ -161,9 +147,11 @@ impl Lcm {
     ///
     /// ```
     /// # use lcm::Lcm;
+    /// # let handler_function = |name: String| println!("Hello, {}!", name);
     /// let mut lcm = Lcm::new().unwrap();
     /// lcm.subscribe("POSITION", handler_function);
     /// loop {
+    /// # break;
     ///     lcm.handle().unwrap();
     /// }
     /// ```
@@ -178,10 +166,14 @@ impl Lcm {
     /// Waits for and dispatches the next incoming message, up to a time limit.
     ///
     /// ```
+    /// # use std::time::Duration;
     /// # use lcm::Lcm;
+    /// # let handler_function = |name: String| println!("Hello, {}!", name);
     /// let mut lcm = Lcm::new().unwrap();
     /// lcm.subscribe("POSITION", handler_function);
+    /// let wait_dur = Duration::from_millis(100);
     /// loop {
+    /// # break;
     ///     lcm.handle_timeout(Duration::from_millis(1000)).unwrap();
     /// }
     /// ```
@@ -199,11 +191,12 @@ impl Lcm {
     ///
     /// ```
     /// # use lcm::Lcm;
-    /// let mut lcm = Lcm::new().unwrap();
+    /// # let handler_function = |name: String| println!("Hello, {}!", name);
+    /// # let mut lcm = Lcm::new().unwrap();
     /// let handler = lcm.subscribe("POSITION", handler_function);
     /// lcm.subscription_set_queue_capacity(handler, 30);
     /// ```
-    pub fn subscription_set_queue_capacity(handler: Rc<LcmSubscription>, num_messages: usize) {
+    pub fn subscription_set_queue_capacity(&self, handler: Rc<LcmSubscription>, num_messages: usize) {
         let handler = handler.subscription;
         let num_messages = num_messages as _;
         unsafe { lcm_subscription_set_queue_capacity(handler, num_messages) };

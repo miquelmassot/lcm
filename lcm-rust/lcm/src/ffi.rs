@@ -1,12 +1,9 @@
 #![allow(non_camel_case_types)]
-#![allow(improper_ctypes)]
 
 use std::os::raw::{c_int, c_uint, c_char, c_void};
 
-#[repr(C)]
-pub struct lcm_t { }
-#[repr(C)]
-pub struct lcm_subscription_t { }
+pub enum lcm_t { }
+pub enum lcm_subscription_t { }
 
 #[repr(C)]
 pub struct lcm_recv_buf_t {

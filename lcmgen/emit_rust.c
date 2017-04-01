@@ -192,7 +192,7 @@ static const char * dim_size_prefix(const char *dim_size) {
     if(*eptr == '\0')
         return "";
     else
-        return "this->";
+        return "self.";
 }
 
 static int is_dim_size_fixed(const char* dim_size) {
@@ -419,7 +419,11 @@ static void emit_impl_message_encode(FILE *f, lcm_struct_t *lcm_struct) {
         emit(2, "let item = &self.%s;", member->membername);
         for (unsigned int d = 0; d != ndim; ++d) {
             lcm_dimension_t *dimension = (lcm_dimension_t *) g_ptr_array_index(member->dimensions, d);
-            emit(2+d, "for item in item.iter() {");
+            const char *prefix = dim_size_prefix(dimension->size);
+            emit(2+d, "let a%d = if %s%s > item.len() {", d, prefix, dimension->size);
+            emit(2+d+1,    "return Err(Error::new(ErrorKind::Other, \"Size is larger than vector\"));");
+            emit(2+d, "} else { %s%s };", prefix, dimension->size);
+            emit(2+d, "for item in item.iter().take(a%d) {", d);
         }
         emit(2+ndim, "item.encode(&mut buffer)?;");
         for (unsigned int d = ndim; d-- != 0; ) {
@@ -442,7 +446,7 @@ static void emit_impl_message_decode_recursive(FILE *f, lcm_member_t *member, un
 
         return;
     }
-   
+
     lcm_dimension_t *dimension = (lcm_dimension_t*) g_ptr_array_index(member->dimensions, dim);
     switch (dimension->mode) {
     case LCM_CONST: {

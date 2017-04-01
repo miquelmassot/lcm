@@ -190,7 +190,7 @@ static int is_dim_size_fixed(const char* dim_size) {
     return (*eptr == '\0');
 }
 
-static char *map_lcm_primative(const char *typename)
+static char *map_lcm_primitive(const char *typename)
 {
     if (!strcmp(typename, "boolean"))
         return strdup("bool");
@@ -236,7 +236,7 @@ static char *map_lcm_primative(const char *typename)
 
 static char *map_type_name(const lcm_typename_t *typename)
 {
-    char *t = map_lcm_primative(typename->shortname);
+    char *t = map_lcm_primitive(typename->shortname);
     if (t) {
         return t;
     }
@@ -382,7 +382,7 @@ static void emit_constants(lcmgen_t *lcmgen, FILE *f, lcm_struct_t *lcm_struct) 
             free(comment);
         }
 
-        char *mapped_typename = map_lcm_primative(lc->lctypename);
+        char *mapped_typename = map_lcm_primitive(lc->lctypename);
         emit(1, "pub static %s: %s = %s;", lc->membername, mapped_typename, lc->val_str);
         free(mapped_typename);
         emit(0, "");

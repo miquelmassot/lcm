@@ -1,8 +1,12 @@
 extern crate lcm;
+extern crate env_logger;
 extern crate example;
+
 use example::exlcm;
 
 fn main() {
+    env_logger::init().unwrap();
+
     let mut lcm = lcm::Lcm::new().unwrap();
 
     lcm.subscribe("EXAMPLE",

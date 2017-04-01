@@ -267,6 +267,17 @@ static void make_dirs_for_file(const char *path)
 #endif
 }
 
+static void emit_pub_use(lcmgen_t *lcmgen, FILE *f, lcm_struct_t *lcm_struct)
+{
+    char *struct_name = make_rust_type_name(lcm_struct->structname);
+    char *package_name = dots_to_double_colons(lcmgen->package);
+    emit(0, "");
+    emit(0, "mod %s;", lcm_struct->structname->shortname);
+    emit(0, "pub use self::%s::%s;", lcm_struct->structname->shortname, struct_name);
+    free(package_name);
+    free(struct_name);
+}
+
 static void emit_header_start(lcmgen_t *lcmgen, FILE *f)
 {
     emit(0, "// GENERATED CODE - DO NOT EDIT");
@@ -279,18 +290,19 @@ static void emit_struct_def(lcmgen_t *lcmgen, FILE *f, lcm_struct_t *lcm_struct)
 {
     char *struct_name = make_rust_type_name(lcm_struct->structname);
 
-    // Include non-primitive types - assuming they're in the same parent module as this
+    // Include non-primitive types
     for (unsigned int mind = 0; mind < g_ptr_array_size(lcm_struct->members); mind++) {
         lcm_member_t *lm = (lcm_member_t *)g_ptr_array_index(lcm_struct->members, mind);
         if (!lcm_is_primitive_type(lm->type->lctypename) && 
             strcmp(lm->type->lctypename, lcm_struct->structname->lctypename)) {
             char *mapped_tn = map_type_name(lm->type);
             char *other_pn = dots_to_double_colons(lm->type->package);
-            emit(0, "use super::%s::%s;", other_pn, mapped_tn);
+            emit(0, "use %s::%s;", other_pn, mapped_tn);
             free(other_pn);
             free(mapped_tn);
         }
     }
+
     emit(0, "");
 
     // The struct
@@ -550,32 +562,10 @@ int emit_rust(lcmgen_t *lcmgen)
         free(modfile_name);
     }
 
-    // Emit headers for all modules
-    for (unsigned int i = 0; i < g_ptr_array_size(lcmgen->structs); ++i) {
-        lcm_struct_t *lcm_struct = (lcm_struct_t*) g_ptr_array_index(lcmgen->structs, i);
-        char* modfile_name = make_rust_mod_file_name(rust_path, lcm_struct);
-
-        make_dirs_for_file(modfile_name);
-        if (access(modfile_name, F_OK) != 0) {
-            printf("Creating %s\n", modfile_name);
-            FILE* f = fopen(modfile_name, "w");
-            if (f == NULL) {
-                printf("Couldn't open %s for writing\n", modfile_name);
-                return -1;
-            }
-
-            emit_header_start(lcmgen, f);
-
-            fclose(f);
-        }
-
-        free(modfile_name);
-    }
-
-    // Declare each struct
+    // Expose each struct from its mod file
     for (unsigned int i = 0; i < g_ptr_array_size(lcmgen->structs); ++i) {
         lcm_struct_t* lcm_struct = (lcm_struct_t*) g_ptr_array_index(lcmgen->structs, i);
-        printf("Emitting code for %s\n", lcm_struct->structname->lctypename);
+
         char* modfile_name = make_rust_mod_file_name(rust_path, lcm_struct);
 
         FILE* f = fopen(modfile_name, "a");
@@ -584,29 +574,33 @@ int emit_rust(lcmgen_t *lcmgen)
             return -1;
         }
 
-        emit_struct_def(lcmgen, f, lcm_struct);
+        emit_pub_use(lcmgen, f, lcm_struct);
 
         fclose(f);
         free(modfile_name);
     }
 
-    // Implement each struct
+    // Declare and implement each struct
     for (unsigned int i = 0; i < g_ptr_array_size(lcmgen->structs); ++i) {
         lcm_struct_t* lcm_struct = (lcm_struct_t*) g_ptr_array_index(lcmgen->structs, i);
-        printf("Implementing code for %s\n", lcm_struct->structname->lctypename);
-        char* modfile_name = make_rust_mod_file_name(rust_path, lcm_struct);
 
-        FILE* f = fopen(modfile_name, "a");
+        printf("Emitting code for %s\n", lcm_struct->structname->lctypename);
+        // char* modfile_name = make_rust_mod_file_name(rust_path, lcm_struct);
+        char* file_name = make_rust_file_name(rust_path, lcm_struct);
+
+        FILE* f = fopen(file_name, "w");
         if (f == NULL) {
-            printf("Couldn't open %s for writing\n", modfile_name);
+            printf("Couldn't open %s for writing\n", file_name);
             return -1;
         }
 
+        emit_header_start(lcmgen, f);
+        emit_struct_def(lcmgen, f, lcm_struct);
         emit_impl_struct(lcmgen, f, lcm_struct);
         emit_impl_message(lcmgen, f, lcm_struct);
 
         fclose(f);
-        free(modfile_name);
+        free(file_name);
     }
 
     return 0;

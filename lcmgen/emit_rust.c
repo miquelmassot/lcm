@@ -562,6 +562,7 @@ int emit_rust(lcmgen_t *lcmgen)
         lcm_struct_t* lcm_struct = (lcm_struct_t*) g_ptr_array_index(lcmgen->structs, i);
 
         char* modfile_name = make_rust_mod_file_name(rust_path, lcm_struct);
+        make_dirs_for_file(modfile_name);
 
         FILE* f = fopen(modfile_name, "a");
         if (f == NULL) {
@@ -580,8 +581,8 @@ int emit_rust(lcmgen_t *lcmgen)
         lcm_struct_t* lcm_struct = (lcm_struct_t*) g_ptr_array_index(lcmgen->structs, i);
 
         printf("Emitting code for %s\n", lcm_struct->structname->lctypename);
-        // char* modfile_name = make_rust_mod_file_name(rust_path, lcm_struct);
         char* file_name = make_rust_file_name(rust_path, lcm_struct);
+        // No need to make directories, since the mod.rs file was already created.
 
         FILE* f = fopen(file_name, "w");
         if (f == NULL) {

@@ -81,6 +81,7 @@ impl LcmGen {
         // Build the lcm-gen command
         let mut cmd = Command::new("lcm-gen");
         cmd.arg("--rust")
+            .arg("--rust-cargo")
             .arg(format!("--rust-path={}", self.out_dir.display()));
         for path in &self.files {
             println!("cargo:rerun-if-changed={}", path.display());

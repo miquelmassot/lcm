@@ -50,11 +50,10 @@ dots_to_double_colons(const char *s)
     return p;
 }
 
-static char* make_rust_mod_file_name(const char* prefix, const lcm_struct_t* lcm_struct) {
-    static const char* modfile_suffix = "/mod.rs";
+static char* make_rust_file_path(const char* prefix, const lcm_struct_t* lcm_struct) {
     // allocate space for modfile name
     char* package_name = lcm_struct->structname->package;
-    char* result = calloc(strlen(prefix) + 1 + strlen(package_name) + 1 + strlen(modfile_suffix), sizeof(char));
+    char* result = calloc(strlen(prefix) + 1 + strlen(package_name) + 1, sizeof(char));
     if (result == NULL) {
         return NULL;
     }
@@ -69,7 +68,48 @@ static char* make_rust_mod_file_name(const char* prefix, const lcm_struct_t* lcm
             *c = '/';
         }
     }
+    return result;
+}
+
+static char* make_rust_mod_file_name(const char* prefix, const lcm_struct_t* lcm_struct) {
+    static const char* modfile_suffix = "/mod.rs";
+    char* path = make_rust_file_path(prefix, lcm_struct);
+    if (path == NULL) {
+        return NULL;
+    }
+    char* result = calloc(strlen(path) + strlen(modfile_suffix) + 1, sizeof(char));
+    if (result ==NULL) {
+        free(path);
+        return NULL;
+    }
+    strcat(result, path);
     strcat(result, modfile_suffix);
+
+    free(path);
+    return result;
+}
+
+static char* make_rust_file_name(const char* prefix, const lcm_struct_t* lcm_struct) {
+    static const char* rust_suffix = ".rs";
+    char* path = make_rust_file_path(prefix, lcm_struct);
+    if (path == NULL) {
+        return NULL;
+    }
+    char* result = calloc(strlen(path) + 1 + // path + '/'
+                          strlen(lcm_struct->structname->shortname) +
+                          strlen(rust_suffix) + 1, // suffix + \0
+                          sizeof(char));
+    if (result == NULL) {
+        free(path);
+        return NULL;
+    }
+    strcat(result, path);
+    strcat(result, "/");
+    strcat(result, lcm_struct->structname->shortname);
+    strcat(result, rust_suffix);
+    printf("The path is %s\n", result);
+
+    free(path);
     return result;
 }
 

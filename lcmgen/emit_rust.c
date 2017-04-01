@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <assert.h>
 #include <string.h>
 #include <sys/stat.h>
 
@@ -63,7 +64,7 @@ static char* make_rust_mod_file_name(const char* prefix, const lcm_struct_t* lcm
     strcat(result, prefix);
     strcat(result, "/");
     strcat(result, package_name);
-    for (char* c = result; *c != 0; ++c) {
+    for (char* c = result + strlen(prefix); *c != 0; ++c) {
         if (*c == '.') {
             *c = '/';
         }
@@ -102,6 +103,36 @@ static char * make_rust_type_name(const lcm_typename_t *typename) {
     return result;
 }
 
+static char * make_rustdoc_comment(const char *comment) {
+    int lines = 1;
+    for(const char *c = comment; *c != 0; c++){
+        if (*c == '\n') lines++;
+    }
+
+    char *result = calloc(4*lines + strlen(comment) + 1, sizeof(char));
+    if (result == NULL) {
+        return NULL;
+    }
+
+    int result_index = 0;
+    result[result_index++] = '/';
+    result[result_index++] = '/';
+    result[result_index++] = '/';
+    result[result_index++] = ' ';
+    for(const char *c = comment; *c != 0; c++) {
+        result[result_index++] = *c;
+        if (*c == '\n') {
+            result[result_index++] = '/';
+            result[result_index++] = '/';
+            result[result_index++] = '/';
+            result[result_index++] = ' ';
+        }
+    }
+    result[result_index] = 0;
+
+    return result;
+}
+
 static const char * dim_size_prefix(const char *dim_size) {
     char *eptr = NULL;
     long asdf = strtol(dim_size, &eptr, 0);
@@ -119,48 +150,56 @@ static int is_dim_size_fixed(const char* dim_size) {
     return (*eptr == '\0');
 }
 
-static char *map_type_name(const lcm_typename_t *typename)
+static char *map_lcm_primative(const char *typename)
 {
-    const char *t = typename->shortname;
-
-    if (!strcmp(t, "boolean"))
+    if (!strcmp(typename, "boolean"))
         return strdup("bool");
 
-    if (!strcmp(t, "string"))
+    if (!strcmp(typename, "string"))
         return strdup("String");
 
-    if (!strcmp(t, "byte"))
+    if (!strcmp(typename, "byte"))
         return strdup("u8");
 
-    if (!strcmp(t, "int8_t"))
+    if (!strcmp(typename, "int8_t"))
         return strdup("i8");
 
-    if (!strcmp(t, "int16_t"))
+    if (!strcmp(typename, "int16_t"))
         return strdup("i16");
 
-    if (!strcmp(t, "int32_t"))
+    if (!strcmp(typename, "int32_t"))
         return strdup("i32");
 
-    if (!strcmp(t, "int64_t"))
+    if (!strcmp(typename, "int64_t"))
         return strdup("i64");
 
-    if (!strcmp(t, "uint8_t"))
+    if (!strcmp(typename, "uint8_t"))
         return strdup("u8");
 
-    if (!strcmp(t, "uint16_t"))
+    if (!strcmp(typename, "uint16_t"))
         return strdup("u16");
 
-    if (!strcmp(t, "uint32_t"))
+    if (!strcmp(typename, "uint32_t"))
         return strdup("u32");
 
-    if (!strcmp(t, "uint64_t"))
+    if (!strcmp(typename, "uint64_t"))
         return strdup("u64");
 
-    if (!strcmp(t, "float"))
+    if (!strcmp(typename, "float"))
         return strdup("f32");
 
-    if (!strcmp(t, "double"))
+    if (!strcmp(typename, "double"))
         return strdup("f64");
+
+    return NULL;
+}
+
+static char *map_type_name(const lcm_typename_t *typename)
+{
+    char *t = map_lcm_primative(typename->shortname);
+    if (t) {
+        return t;
+    }
 
     return make_rust_type_name(typename);
 }
@@ -194,15 +233,31 @@ static void emit_header_start(lcmgen_t *lcmgen, FILE *f)
     emit(0, "");
     emit(0, "use lcm::Message;");
     emit(0, "use std::io::{Result, Read, Write};");
-    emit(0, "");
 }
 
 static void emit_struct_def(lcmgen_t *lcmgen, FILE *f, lcm_struct_t *lcm_struct)
 {
     char *struct_name = make_rust_type_name(lcm_struct->structname);
 
+    // Include non-primitive types - assuming they're in the same parent module as this
+    for (unsigned int mind = 0; mind < g_ptr_array_size(lcm_struct->members); mind++) {
+        lcm_member_t *lm = (lcm_member_t *)g_ptr_array_index(lcm_struct->members, mind);
+        if (!lcm_is_primitive_type(lm->type->lctypename) && 
+            strcmp(lm->type->lctypename, lcm_struct->structname->lctypename)) {
+            char *mapped_tn = map_type_name(lm->type);
+            char *other_pn = dots_to_double_colons(lm->type->package);
+            emit(0, "use super::%s::%s;", other_pn, mapped_tn);
+            free(other_pn);
+            free(mapped_tn);
+        }
+    }
+    emit(0, "");
+
+    // The struct
     if (lcm_struct->comment != NULL) {
-        emit(0, "/* %s */", lcm_struct->comment);
+        char *comment = make_rustdoc_comment(lcm_struct->comment);
+        emit(0, "%s", comment);
+        free(comment);
     }
     emit(0, "#[derive(Debug, Default)]");
     emit(0, "pub struct %s {", struct_name);
@@ -215,7 +270,9 @@ static void emit_struct_def(lcmgen_t *lcmgen, FILE *f, lcm_struct_t *lcm_struct)
 
         int ndim = g_ptr_array_size(member->dimensions);
         if (member->comment != NULL) {
-            emit(1, "/* %s */", member->comment);
+            char *comment = make_rustdoc_comment(member->comment);
+            emit(1, "%s", comment);
+            free(comment);
         }
         emit_start(1, "pub %s: ", member->membername);
 
@@ -264,16 +321,36 @@ static void emit_struct_def(lcmgen_t *lcmgen, FILE *f, lcm_struct_t *lcm_struct)
 
 static void emit_impl_struct(lcmgen_t *lcmgen, FILE *f, lcm_struct_t *lcm_struct)
 {
-    char *type_name = make_rust_type_name(lcm_struct->structname);
+    // Constants
+    if (g_ptr_array_size(lcm_struct->constants) > 0) {
+        char *type_name = make_rust_type_name(lcm_struct->structname);
+        emit(0, "impl %s {", type_name);
+        emit(0, "");
 
-    emit(0, "impl %s {", type_name);
-    emit(1, "pub fn new() -> Self {");
-    emit(2, "Default::default()");
-    emit(1, "}");
-    emit(0, "}");
-    emit(0, "");
+        for (unsigned int i = 0; i < g_ptr_array_size(lcm_struct->constants); i++) {
+            lcm_constant_t *lc = (lcm_constant_t *) g_ptr_array_index(lcm_struct->constants, i);
+            assert(lcm_is_legal_const_type(lc->lctypename));
 
-    free(type_name);
+            if (lc->comment != NULL) {
+                char *comment = make_rustdoc_comment(lc->comment);
+                emit(1, "%s", comment);
+                free(comment);
+            }
+
+            char *mapped_typename = map_lcm_primative(lc->lctypename);
+            emit(1, "pub fn %s() -> %s {", lc->membername, mapped_typename);
+            emit(2, "%s", lc->val_str);
+            emit(1, "}");
+            free(mapped_typename);
+
+            emit(0, "");
+        }
+
+        emit(0, "}");
+        emit(0, "");
+
+        free(type_name);
+    }
 }
 
 static void emit_impl_message_hash(FILE *f, lcm_struct_t *lcm_struct) {
@@ -484,6 +561,7 @@ int emit_rust(lcmgen_t *lcmgen)
             return -1;
         }
 
+        emit_impl_struct(lcmgen, f, lcm_struct);
         emit_impl_message(lcmgen, f, lcm_struct);
 
         fclose(f);

@@ -19,6 +19,7 @@
 void setup_rust_options(getopt_t *gopt)
 {
     getopt_add_string (gopt, 0, "rust-path",    ".",      "Location for .rs files");
+    getopt_add_bool   (gopt, 0, "rust-cargo",      0,      "Emit cargo messages");
 }
 
 static char *dots_to_slashes(const char *s)
@@ -545,15 +546,22 @@ int emit_rust(lcmgen_t *lcmgen)
 {
     // compute the target filename
     char *rust_path = getopt_get_string(lcmgen->gopt, "rust-path");
+    int emit_cargo_messages = getopt_get_bool(lcmgen->gopt, "rust-cargo");
     printf("rust-path: %s\n", rust_path);
 
     // Remove mod.rs for each module
     for (unsigned int i = 0; i < g_ptr_array_size(lcmgen->structs); ++i) {
         lcm_struct_t *lcm_struct = (lcm_struct_t*) g_ptr_array_index(lcmgen->structs, i);
         char* modfile_name = make_rust_mod_file_name(rust_path, lcm_struct);
+
         if (remove(modfile_name) == 0) {
             printf("Removed file: %s\n", modfile_name);
         }
+
+        if (emit_cargo_messages) {
+            printf("cargo:rerun-if-changed=%s\n", modfile_name);
+        }
+
         free(modfile_name);
     }
 
@@ -594,6 +602,10 @@ int emit_rust(lcmgen_t *lcmgen)
         emit_struct_def(lcmgen, f, lcm_struct);
         emit_constants(lcmgen, f, lcm_struct);
         emit_impl_message(lcmgen, f, lcm_struct);
+
+        if (emit_cargo_messages) {
+            printf("cargo:rerun-if-changed=%s\n", file_name);
+        }
 
         fclose(f);
         free(file_name);

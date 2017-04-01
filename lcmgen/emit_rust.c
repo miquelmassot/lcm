@@ -272,7 +272,7 @@ static void emit_pub_use(lcmgen_t *lcmgen, FILE *f, lcm_struct_t *lcm_struct)
     char *struct_name = make_rust_type_name(lcm_struct->structname);
     char *package_name = dots_to_double_colons(lcmgen->package);
     emit(0, "");
-    emit(0, "mod %s;", lcm_struct->structname->shortname);
+    emit(0, "pub mod %s;", lcm_struct->structname->shortname);
     emit(0, "pub use self::%s::%s;", lcm_struct->structname->shortname, struct_name);
     free(package_name);
     free(struct_name);
@@ -371,38 +371,21 @@ static void emit_struct_def(lcmgen_t *lcmgen, FILE *f, lcm_struct_t *lcm_struct)
     free(struct_name);
 }
 
-static void emit_impl_struct(lcmgen_t *lcmgen, FILE *f, lcm_struct_t *lcm_struct)
-{
-    // Constants
-    if (g_ptr_array_size(lcm_struct->constants) > 0) {
-        char *type_name = make_rust_type_name(lcm_struct->structname);
-        emit(0, "impl %s {", type_name);
-        emit(0, "");
+static void emit_constants(lcmgen_t *lcmgen, FILE *f, lcm_struct_t *lcm_struct) {
+    for (unsigned int i = 0; i < g_ptr_array_size(lcm_struct->constants); ++i) {
+        lcm_constant_t *lc = (lcm_constant_t *) g_ptr_array_index(lcm_struct->constants, i);
+        assert(lcm_is_legal_const_type(lc->lctypename));
 
-        for (unsigned int i = 0; i < g_ptr_array_size(lcm_struct->constants); i++) {
-            lcm_constant_t *lc = (lcm_constant_t *) g_ptr_array_index(lcm_struct->constants, i);
-            assert(lcm_is_legal_const_type(lc->lctypename));
-
-            if (lc->comment != NULL) {
-                char *comment = make_rustdoc_comment(lc->comment);
-                emit(1, "%s", comment);
-                free(comment);
-            }
-
-            char *mapped_typename = map_lcm_primative(lc->lctypename);
-            emit(1, "#[allow(non_snake_case)]");
-            emit(1, "pub fn %s() -> %s {", lc->membername, mapped_typename);
-            emit(2, "%s", lc->val_str);
-            emit(1, "}");
-            free(mapped_typename);
-
-            emit(0, "");
+        if (lc->comment != NULL) {
+            char *comment = make_rustdoc_comment(lc->comment);
+            emit(1, "%s", comment);
+            free(comment);
         }
 
-        emit(0, "}");
+        char *mapped_typename = map_lcm_primative(lc->lctypename);
+        emit(1, "pub static %s: %s = %s;", lc->membername, mapped_typename, lc->val_str);
+        free(mapped_typename);
         emit(0, "");
-
-        free(type_name);
     }
 }
 
@@ -596,7 +579,7 @@ int emit_rust(lcmgen_t *lcmgen)
 
         emit_header_start(lcmgen, f);
         emit_struct_def(lcmgen, f, lcm_struct);
-        emit_impl_struct(lcmgen, f, lcm_struct);
+        emit_constants(lcmgen, f, lcm_struct);
         emit_impl_message(lcmgen, f, lcm_struct);
 
         fclose(f);

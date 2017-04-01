@@ -338,6 +338,7 @@ static void emit_impl_struct(lcmgen_t *lcmgen, FILE *f, lcm_struct_t *lcm_struct
             }
 
             char *mapped_typename = map_lcm_primative(lc->lctypename);
+            emit(1, "#[allow(non_snake_case)]");
             emit(1, "pub fn %s() -> %s {", lc->membername, mapped_typename);
             emit(2, "%s", lc->val_str);
             emit(1, "}");

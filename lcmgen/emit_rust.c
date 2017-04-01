@@ -50,6 +50,21 @@ dots_to_double_colons(const char *s)
     return p;
 }
 
+/// Remove the _t suffix, which is a C convention.
+static char * strip_underscore_t(char const *name) {
+    char *result = strdup(name);
+
+    int len = strlen(result);
+    if (len < 2) {
+        return result;
+    }
+
+    if (result[len-2] == '_' && result[len-1] == 't') {
+        result[len-2] = 0;
+    }
+    return result;
+}
+
 static char* make_rust_file_path(const char* prefix, const lcm_struct_t* lcm_struct) {
     // allocate space for modfile name
     char* package_name = lcm_struct->structname->package;
@@ -95,8 +110,11 @@ static char* make_rust_file_name(const char* prefix, const lcm_struct_t* lcm_str
     if (path == NULL) {
         return NULL;
     }
+
+    char *basename = strip_underscore_t(lcm_struct->structname->shortname);
+
     char* result = calloc(strlen(path) + 1 + // path + '/'
-                          strlen(lcm_struct->structname->shortname) +
+                          strlen(basename) +
                           strlen(rust_suffix) + 1, // suffix + \0
                           sizeof(char));
     if (result == NULL) {
@@ -105,21 +123,21 @@ static char* make_rust_file_name(const char* prefix, const lcm_struct_t* lcm_str
     }
     strcat(result, path);
     strcat(result, "/");
-    strcat(result, lcm_struct->structname->shortname);
+    strcat(result, basename);
     strcat(result, rust_suffix);
-    printf("The path is %s\n", result);
 
+    free(basename);
     free(path);
     return result;
 }
 
 static char * make_rust_type_name(const lcm_typename_t *typename) {
-    char* result = strdup(typename->shortname);
+    char *result = strip_underscore_t(typename->shortname);
 
     // Convert to camel case
     char* result_char = result;
     int capitalize_next_char = 1;
-    for (const char* c = typename->shortname; *c != 0; ++c) {
+    for (const char* c = result; *c != 0; ++c) {
         if (*c == '_') {
             capitalize_next_char = 1;
         } else {
@@ -133,12 +151,6 @@ static char * make_rust_type_name(const lcm_typename_t *typename) {
         }
     }
     *result_char = 0;
-
-    // Special case:
-    // For type names following the C convention of *_t, remove the _t suffix
-    // (or rather, the trailing 'T', since we've already converted to camel case)
-    if (result_char - result > 2 && *(result_char - 1) == 'T')
-        *(result_char - 1) = 0;
 
     return result;
 }
@@ -269,13 +281,13 @@ static void make_dirs_for_file(const char *path)
 
 static void emit_pub_use(lcmgen_t *lcmgen, FILE *f, lcm_struct_t *lcm_struct)
 {
+    char *struct_mod_name = strip_underscore_t(lcm_struct->structname->shortname);
     char *struct_name = make_rust_type_name(lcm_struct->structname);
-    char *package_name = dots_to_double_colons(lcmgen->package);
     emit(0, "");
-    emit(0, "pub mod %s;", lcm_struct->structname->shortname);
-    emit(0, "pub use self::%s::%s;", lcm_struct->structname->shortname, struct_name);
-    free(package_name);
+    emit(0, "pub mod %s;", struct_mod_name);
+    emit(0, "pub use self::%s::%s;", struct_mod_name, struct_name);
     free(struct_name);
+    free(struct_mod_name);
 }
 
 static void emit_header_start(lcmgen_t *lcmgen, FILE *f)

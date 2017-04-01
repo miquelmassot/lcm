@@ -6,7 +6,7 @@ fn main() {
     let mut lcm = lcm::Lcm::new().unwrap();
 
     lcm.subscribe("EXAMPLE",
-                  Box::new(|msg: exlcm::Example| println!("Received message: {:?}", msg)));
+                  |msg: exlcm::Example| println!("Received message: {:?}", msg));
 
     loop {
         lcm.handle().unwrap_or_else(|e| {

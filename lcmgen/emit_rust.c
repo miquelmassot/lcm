@@ -279,7 +279,7 @@ static void emit_header_start(lcmgen_t *lcmgen, FILE *f)
     emit(0, "// GENERATED CODE - DO NOT EDIT");
     emit(0, "");
     emit(0, "use lcm::Message;");
-    emit(0, "use std::io::{Result, ErrorKind, Read, Write};");
+    emit(0, "use std::io::{Result, Error, ErrorKind, Read, Write};");
 }
 
 static void emit_struct_def(lcmgen_t *lcmgen, FILE *f, lcm_struct_t *lcm_struct)

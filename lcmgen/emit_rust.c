@@ -404,7 +404,7 @@ static void emit_impl_message_encode(FILE *f, lcm_struct_t *lcm_struct) {
         for (unsigned int d = 0; d != ndim; ++d) {
             lcm_dimension_t *dimension = (lcm_dimension_t *) g_ptr_array_index(member->dimensions, d);
             if (dimension->mode == LCM_VAR) {
-                emit(2+d, "if self.%s > item.len() {", dimension->size);
+                emit(2+d, "if self.%s as usize > item.len() {", dimension->size);
                 emit(2+d+1,    "return Err(Error::new(ErrorKind::Other, \"Size is larger than vector\"));");
                 emit(2+d, "};");
                 emit(2+d, "for item in item.iter().take(self.%s as usize) {", dimension->size);

@@ -379,7 +379,7 @@ static void emit_constants(lcmgen_t *lcmgen, FILE *f, lcm_struct_t *lcm_struct) 
         }
 
         char *mapped_typename = map_lcm_primitive(lc->lctypename);
-        emit(1, "pub static %s: %s = %s;", lc->membername, mapped_typename, lc->val_str);
+        emit(1, "pub const %s: %s = %s;", lc->membername, mapped_typename, lc->val_str);
         free(mapped_typename);
         emit(0, "");
     }

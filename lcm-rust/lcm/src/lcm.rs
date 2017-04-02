@@ -232,6 +232,8 @@ impl Drop for Lcm {
 /// Tests
 ///
 mod test {
+    use super::*;
+
     #[test]
     fn initialized() {
         let _lcm = Lcm::new().unwrap();

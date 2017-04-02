@@ -21,6 +21,7 @@ macro_rules! trace { ($($a:tt)*) => ( () ) }
 macro_rules! error { ($($a:tt)*) => ( () ) }
 
 mod ffi;
+
 mod lcm;
 pub use lcm::Lcm;
 

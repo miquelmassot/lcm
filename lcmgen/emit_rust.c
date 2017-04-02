@@ -186,23 +186,6 @@ static char * make_rustdoc_comment(const char *comment) {
     return result;
 }
 
-static const char * dim_size_prefix(const char *dim_size) {
-    char *eptr = NULL;
-    long asdf = strtol(dim_size, &eptr, 0);
-    (void) asdf;  // suppress compiler warnings
-    if(*eptr == '\0')
-        return "";
-    else
-        return "this->";
-}
-
-static int is_dim_size_fixed(const char* dim_size) {
-    char *eptr = NULL;
-    long asdf = strtol(dim_size, &eptr, 0);
-    (void) asdf;  // suppress compiler warnings
-    return (*eptr == '\0');
-}
-
 static char *map_lcm_primitive(const char *typename)
 {
     if (!strcmp(typename, "boolean"))
@@ -296,7 +279,7 @@ static void emit_header_start(lcmgen_t *lcmgen, FILE *f)
     emit(0, "// GENERATED CODE - DO NOT EDIT");
     emit(0, "");
     emit(0, "use lcm::Message;");
-    emit(0, "use std::io::{Result, Read, Write};");
+    emit(0, "use std::io::{Result, ErrorKind, Read, Write};");
 }
 
 static void emit_struct_def(lcmgen_t *lcmgen, FILE *f, lcm_struct_t *lcm_struct)
@@ -420,7 +403,14 @@ static void emit_impl_message_encode(FILE *f, lcm_struct_t *lcm_struct) {
         emit(2, "let item = &self.%s;", member->membername);
         for (unsigned int d = 0; d != ndim; ++d) {
             lcm_dimension_t *dimension = (lcm_dimension_t *) g_ptr_array_index(member->dimensions, d);
-            emit(2+d, "for item in item.iter() {");
+            if (dimension->mode == LCM_VAR) {
+                emit(2+d, "if self.%s > item.len() {", dimension->size);
+                emit(2+d+1,    "return Err(Error::new(ErrorKind::Other, \"Size is larger than vector\"));");
+                emit(2+d, "};");
+                emit(2+d, "for item in item.iter().take(self.%s as usize) {", dimension->size);
+            } else {
+                emit(2+d, "for item in item.iter() {");
+            }
         }
         emit(2+ndim, "item.encode(&mut buffer)?;");
         for (unsigned int d = ndim; d-- != 0; ) {
@@ -443,7 +433,7 @@ static void emit_impl_message_decode_recursive(FILE *f, lcm_member_t *member, un
 
         return;
     }
-   
+
     lcm_dimension_t *dimension = (lcm_dimension_t*) g_ptr_array_index(member->dimensions, dim);
     switch (dimension->mode) {
     case LCM_CONST: {

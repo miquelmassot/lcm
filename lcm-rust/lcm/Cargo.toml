@@ -6,7 +6,7 @@ description = "Rust bindings for the LCM library"
 documentation = "https://docs.rs/crate/lcm"
 homepage = "https://github.com/adeschamps/lcm/tree/rust/lcm-rust/lcm"
 repository = "https://github.com/adeschamps/lcm/tree/rust/lcm-rust/lcm"
-license-file = "../../COPYING"
+license = "LGPL-2.1"
 categories = ["api-bindings", "external-ffi-bindings", "encoding"]
 
 [dependencies]

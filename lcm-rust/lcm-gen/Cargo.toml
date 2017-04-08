@@ -6,7 +6,7 @@ description = "Build dependency to invoke lcm-gen"
 documentation = "https://docs.rs/crate/lcm_gen"
 homepage = "https://github.com/adeschamps/lcm/tree/rust/lcm-rust/lcm-gen"
 repository = "https://github.com/adeschamps/lcm/tree/rust/lcm-rust/lcm-gen"
-license-file = "../../COPYING"
+license = "LGPL-2.1"
 categories = ["api-bindings", "external-ffi-bindings", "encoding"]
 
 [dependencies]

@@ -7,13 +7,16 @@ matrix:
   allow_failures:
     - rust: nightly
 
+sudo: required
+
 install:
   - wget -qO- http://www.cmake.org/files/v3.1/cmake-3.1.0-Linux-x86_64.tar.gz | tar xvz
   - sudo cp -fR cmake-3.1.0-Linux-x86_64/* /usr
 
 script:
   - cmake .
-  - make install
+  - make
+  - sudo make install
   - cd lcm-rust/lcm
   - cargo build --verbose
   - cargo test --verbose

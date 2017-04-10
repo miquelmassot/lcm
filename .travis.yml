@@ -17,6 +17,8 @@ script:
   - cmake .
   - make
   - sudo make install
+  - export LD_LIBRARY_PATH="$(pwd)/lcm:$(LD_LIBRARY_PATH)"
+  - export LIBRARY_PATH="$(pwd)/lcm:$(LIBRARY_PATH)"
   - cd lcm-rust/lcm
   - cargo build --verbose
   - cargo test --verbose

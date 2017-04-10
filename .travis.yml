@@ -13,7 +13,7 @@ install:
 
 script:
   - cmake .
-  - make
+  - make install
   - cd lcm-rust/lcm
   - cargo build --verbose
   - cargo test --verbose

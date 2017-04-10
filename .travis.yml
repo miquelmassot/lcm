@@ -1,0 +1,11 @@
+language: rust
+script:
+  - rustc --version && cargo --version
+  - cmake .
+  - make
+  - cd lcm-rust/lcm
+  - cargo build --verbose
+  - cargo test --verbose
+  -  cd ../lcm-gen
+  - cargo build --verbose
+  - cargo test --verbose

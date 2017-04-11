@@ -1,6 +1,7 @@
 # LCM Bindings for Rust
 
 [![crates.io](http://meritbadge.herokuapp.com/lcm)](https://crates.io/crates/lcm)
+[![Build Status](https://travis-ci.org/adeschamps/lcm.svg?branch=rust)](https://travis-ci.org/adeschamps/lcm)
 
 This crate provides Rust bindings for [LCM](http://lcm-proj.github.io).
 

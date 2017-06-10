@@ -297,7 +297,6 @@ static void emit_struct_def(lcmgen_t *lcmgen, FILE *f, lcm_struct_t *lcm_struct)
             int skip = 0;
             for (unsigned int prev = 0; prev < mind; prev++) {
                 lcm_member_t * pm = (lcm_member_t *)g_ptr_array_index(lcm_struct->members, prev);
-                printf("%s vs %s\n", pm->type->lctypename, lm->type->lctypename);
                 if (!lcm_is_primitive_type(pm->type->lctypename) &&
                     strcmp(pm->type->lctypename, lm->type->lctypename) == 0) {
                     // We've already emitted a "use" statement for this type
@@ -404,8 +403,36 @@ static void emit_constants(lcmgen_t *lcmgen, FILE *f, lcm_struct_t *lcm_struct) 
 }
 
 static void emit_impl_message_hash(FILE *f, lcm_struct_t *lcm_struct) {
+    // The C++ version calculates all of this at runtime. We'll do it (naively)
+    // during generation instead. We'll also take advantage of some Rust syntax
+    // to not have to worry about the semicolon.
     emit(1,     "fn hash() -> u64 {");
-    emit(2,         "let hash = 0x%016"PRIx64";", lcm_struct->hash);
+    emit(2,         "let hash = {");
+    emit(3,             "0x%016"PRIx64, lcm_struct->hash);
+
+    for (unsigned int mind = 0; mind < g_ptr_array_size(lcm_struct->members); mind++) {
+        lcm_member_t *lm = (lcm_member_t *)g_ptr_array_index(lcm_struct->members, mind);
+        const char *tn = lm->type->lctypename;
+        if (!lcm_is_primitive_type(tn) && strcmp(tn, lcm_struct->structname->lctypename)) {
+            int skip = 0;
+            for (unsigned int prev = 0; prev < mind; prev++) {
+                lcm_member_t *pm = (lcm_member_t *)g_ptr_array_index(lcm_struct->members, prev);
+                const char *pn = pm->type->lctypename;
+                if (!lcm_is_primitive_type(pn) && strcmp(pn, tn) == 0) {
+                    skip = 1;
+                    break;
+                }
+            }
+
+            if(!skip) {
+                char *mapped_tn = map_type_name(lm->type);
+                emit(3, "+ %s::hash()", mapped_tn);
+                free(mapped_tn);
+            }
+        }
+    }
+
+    emit(2,         "};");
     emit(2,         "(hash << 1) + ((hash >> 63) & 1)");
     emit(1,     "}");
     emit(0, "");

@@ -289,13 +289,31 @@ static void emit_struct_def(lcmgen_t *lcmgen, FILE *f, lcm_struct_t *lcm_struct)
     // Include non-primitive types
     for (unsigned int mind = 0; mind < g_ptr_array_size(lcm_struct->members); mind++) {
         lcm_member_t *lm = (lcm_member_t *)g_ptr_array_index(lcm_struct->members, mind);
-        if (!lcm_is_primitive_type(lm->type->lctypename) && 
+        if (!lcm_is_primitive_type(lm->type->lctypename) &&
             strcmp(lm->type->lctypename, lcm_struct->structname->lctypename)) {
-            char *mapped_tn = map_type_name(lm->type);
-            char *other_pn = dots_to_double_colons(lm->type->package);
-            emit(0, "use %s::%s;", other_pn, mapped_tn);
-            free(other_pn);
-            free(mapped_tn);
+
+            // This is naive, but it is highly unlikely any of these lists will
+            // ever get very large.
+            int skip = 0;
+            for (unsigned int prev = 0; prev < mind; prev++) {
+                lcm_member_t * pm = (lcm_member_t *)g_ptr_array_index(lcm_struct->members, prev);
+                printf("%s vs %s\n", pm->type->lctypename, lm->type->lctypename);
+                if (!lcm_is_primitive_type(pm->type->lctypename) &&
+                    strcmp(pm->type->lctypename, lm->type->lctypename) == 0) {
+                    // We've already emitted a "use" statement for this type
+                    skip = 1;
+                    break;
+                }
+            }
+
+            if(!skip) {
+                // This is the first time "use"ing this type
+                char *mapped_tn = map_type_name(lm->type);
+                char *other_pn = dots_to_double_colons(lm->type->package);
+                emit(0, "use %s::%s;", other_pn, mapped_tn);
+                free(other_pn);
+                free(mapped_tn);
+            }
         }
     }
 

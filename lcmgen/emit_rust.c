@@ -324,7 +324,7 @@ static void emit_struct_def(lcmgen_t *lcmgen, FILE *f, lcm_struct_t *lcm_struct)
         emit(0, "%s", comment);
         free(comment);
     }
-    emit(0, "#[derive(Debug, Default, PartialEq)]");
+    emit(0, "#[derive(Debug, Default, Clone, PartialEq)]");
     emit(0, "pub struct %s {", struct_name);
 
     // Iterate over members of this struct

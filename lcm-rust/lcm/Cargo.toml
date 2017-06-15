@@ -11,4 +11,4 @@ categories = ["api-bindings", "external-ffi-bindings", "encoding"]
 
 [dependencies]
 byteorder = "0.5"
-log = { version = "0.3", optional = true }
+log = "0.3"

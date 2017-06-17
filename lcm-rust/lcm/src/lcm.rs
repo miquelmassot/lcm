@@ -8,10 +8,12 @@ use std::rc::Rc;
 use std::ops::Deref;
 use std::slice;
 use std::time::Duration;
+use std::fmt;
 use ffi::*;
 
 /// An LCM instance that handles publishing and subscribing,
 /// as well as encoding and decoding messages.
+#[derive(Debug)]
 pub struct Lcm {
     lcm: *mut lcm_t,
     subscriptions: Vec<Rc<LcmSubscription>>,
@@ -225,7 +227,11 @@ impl Drop for Lcm {
     }
 }
 
-
+impl fmt::Debug for LcmSubscription {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "LcmSubscription {{ subscription: {:?}, handler: {:?} }}", self.subscription, &*self.handler as *const _)
+    }
+}
 
 #[cfg(test)]
 ///

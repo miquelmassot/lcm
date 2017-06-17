@@ -10,15 +10,8 @@
 //! See also the `lcm-gen` crate, for running `lcmgen` at build time.
 
 extern crate byteorder;
-
-#[cfg(feature = "log")]
 #[macro_use]
 extern crate log;
-
-#[cfg(not(feature = "log"))]
-macro_rules! trace { ($($a:tt)*) => ( () ) }
-#[cfg(not(feature = "log"))]
-macro_rules! error { ($($a:tt)*) => ( () ) }
 
 mod ffi;
 

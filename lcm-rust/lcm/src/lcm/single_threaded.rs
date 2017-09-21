@@ -3,11 +3,13 @@ use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::ffi::CString;
 use std::io::{Error, ErrorKind, Result};
-use std::os::unix::io::{AsRawFd, RawFd};
 use std::time::Duration;
 use super::{LcmSubscription, handler_callback};
 use message::Message;
 use ffi::*;
+
+#[cfg(unix)]
+use std::os::unix::io::{AsRawFd, RawFd};
 
 /// An LCM instance that handles publishing and subscribing,
 /// as well as encoding and decoding messages.
@@ -217,6 +219,7 @@ impl fmt::Debug for Lcm {
     }
 }
 
+#[cfg(unix)]
 impl AsRawFd for Lcm {
     fn as_raw_fd(&self) -> RawFd {
         unsafe { lcm_get_fileno(self.lcm) }

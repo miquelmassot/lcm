@@ -3,12 +3,14 @@ use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::ffi::CString;
 use std::io::{Error, ErrorKind, Result};
-use std::os::unix::io::{AsRawFd, RawFd};
 use std::sync::Mutex;
 use std::time::Duration;
 use super::{LcmSubscription, handler_callback};
 use message::Message;
 use ffi::*;
+
+#[cfg(unix)]
+use std::os::unix::io::{AsRawFd, RawFd};
 
 /// A threadsafe version of the LCM instance. Because this can be used on
 /// multiple threads, all callbacks must also be threadsafe.
@@ -230,6 +232,7 @@ impl fmt::Debug for ThreadsafeLcm {
     }
 }
 
+#[cfg(unix)]
 impl AsRawFd for ThreadsafeLcm {
     fn as_raw_fd(&self) -> RawFd {
         unsafe { lcm_get_fileno(self.lcm) }

@@ -1,28 +1,27 @@
 use std::io::{Error, ErrorKind, Result};
 use std::ffi::CString;
-use message::Message;
 use std::cmp::Ordering;
-use std::ptr;
-use std::boxed::Box;
-use std::rc::Rc;
-use std::ops::Deref;
-use std::slice;
 use std::time::Duration;
-use std::fmt;
+use std::{ptr, slice, fmt};
+use std::collections::HashMap;
 use ffi::*;
+use message::Message;
 
 /// An LCM instance that handles publishing and subscribing,
 /// as well as encoding and decoding messages.
-#[derive(Debug)]
 pub struct Lcm {
     lcm: *mut lcm_t,
-    subscriptions: Vec<Rc<LcmSubscription>>,
+
+    // This has to be Box<Box<..>> due to the fact that &Box<..> is what needs to be sent
+    // across the FFI boundary. Sending &*Box<..> results in not being able to
+    // reconstruct the trait object when it returns to the Rust side of the boundary.
+    subscriptions: HashMap<*mut lcm_subscription_t, Box<Box<FnMut(*const lcm_recv_buf_t)>>>,
 }
 
 
+#[derive(Debug)]
 pub struct LcmSubscription {
     subscription: *mut lcm_subscription_t,
-    handler: Box<FnMut(*const lcm_recv_buf_t)>,
 }
 
 
@@ -41,7 +40,7 @@ impl Lcm {
             false => {
                 Ok(Lcm {
                     lcm: lcm,
-                    subscriptions: Vec::new(),
+                    subscriptions: HashMap::new(),
                 })
             }
         }
@@ -58,7 +57,7 @@ impl Lcm {
     /// let mut lcm = Lcm::new().unwrap();
     /// lcm.subscribe("GREETINGS", |name: String| println!("Hello, {}!", name) );
     /// ```
-    pub fn subscribe<M, F>(&mut self, channel: &str, mut callback: F) -> Rc<LcmSubscription>
+    pub fn subscribe<M, F>(&mut self, channel: &str, mut callback: F) -> LcmSubscription
         where M: Message,
               F: FnMut(M) + 'static
     {
@@ -66,39 +65,37 @@ impl Lcm {
 
         let channel = CString::new(channel).unwrap();
 
-        let handler = Box::new(move |rbuf: *const lcm_recv_buf_t| {
-            trace!("Running handler");
-            let mut buf = unsafe {
-                let ref rbuf = *rbuf;
-                let data = rbuf.data as *mut u8;
-                let len = rbuf.data_size as usize;
-                slice::from_raw_parts(data, len)
-            };
-            trace!("Decoding buffer: {:?}", buf);
-            match M::decode_with_hash(&mut buf) {
-                Ok(msg) => callback(msg),
-                Err(_) => error!("Failed to decode buffer: {:?}", buf),
-            }
-        });
+        // This is a double box for a reason
+        let handler = {
+            let handler: Box<FnMut(*const lcm_recv_buf_t)> =
+                Box::new(move |rbuf: *const lcm_recv_buf_t| {
+                    trace!("Running handler");
+                    let mut buf = unsafe {
+                        let ref rbuf = *rbuf;
+                        let data = rbuf.data as *mut u8;
+                        let len = rbuf.data_size as usize;
+                        slice::from_raw_parts(data, len)
+                    };
+                    trace!("Decoding buffer: {:?}", buf);
+                    match M::decode_with_hash(&mut buf) {
+                        Ok(msg) => callback(msg),
+                        Err(_) => error!("Failed to decode buffer: {:?}", buf),
+                    }
+                });
+            Box::new(handler)
+        };
 
-        let mut subscription = Rc::new(LcmSubscription {
-            subscription: ptr::null_mut(),
-            handler: handler,
-        });
-
-        let user_data = (subscription.deref() as *const _) as *mut _;
-
-        let c_subscription = unsafe {
+        let subscription = unsafe {
             lcm_subscribe(self.lcm,
                           channel.as_ptr(),
                           Some(Lcm::handler_callback::<M>),
-                          user_data)
+                          &*handler as *const _  as *mut _)
         };
 
-        Rc::get_mut(&mut subscription).unwrap().subscription = c_subscription;
-        self.subscriptions.push(subscription.clone());
+        assert!(!self.subscriptions.contains_key(&subscription));
+        self.subscriptions.insert(subscription, handler);
 
-        subscription
+        LcmSubscription { subscription }
     }
 
     /// Unsubscribes a message handler.
@@ -107,18 +104,21 @@ impl Lcm {
     /// # use lcm::Lcm;
     /// # let handler_function = |name: String| println!("Hello, {}!", name);
     /// # let mut lcm = Lcm::new().unwrap();
-    /// let handler = lcm.subscribe("GREETINGS", handler_function);
+    /// let subscription = lcm.subscribe("GREETINGS", handler_function);
     /// // ...
-    /// lcm.unsubscribe(handler);
+    /// lcm.unsubscribe(subscription);
     /// ```
-    pub fn unsubscribe(&mut self, handler: Rc<LcmSubscription>) -> Result<()> {
-        trace!("Unsubscribing handler {:?}", handler.subscription);
-        let result = unsafe { lcm_unsubscribe(self.lcm, handler.subscription) };
+    pub fn unsubscribe(&mut self, subscription: LcmSubscription) -> Result<()> {
+        trace!("Unsubscribing handler {:?}", subscription.subscription);
+        let result = unsafe { lcm_unsubscribe(self.lcm, subscription.subscription) };
 
-        self.subscriptions.retain(|sub| { sub.subscription != handler.subscription });
+        self.subscriptions.remove(&subscription.subscription);
 
         match result {
-            0 => Ok(()),
+            0 => {
+                self.subscriptions.remove(&subscription.subscription);
+                Ok(())
+            },
             _ => Err(Error::new(ErrorKind::Other, "LCM: Failed to unsubscribe")),
         }
     }
@@ -197,11 +197,11 @@ impl Lcm {
     /// # use lcm::Lcm;
     /// # let handler_function = |name: String| println!("Hello, {}!", name);
     /// # let mut lcm = Lcm::new().unwrap();
-    /// let handler = lcm.subscribe("POSITION", handler_function);
-    /// lcm.subscription_set_queue_capacity(handler, 30);
+    /// let subscription = lcm.subscribe("POSITION", handler_function);
+    /// lcm.subscription_set_queue_capacity(subscription, 30);
     /// ```
-    pub fn subscription_set_queue_capacity(&self, handler: Rc<LcmSubscription>, num_messages: usize) {
-        let handler = handler.subscription;
+    pub fn subscription_set_queue_capacity(&self, subscription: LcmSubscription, num_messages: usize) {
+        let handler = subscription.subscription;
         let num_messages = num_messages as _;
         unsafe { lcm_subscription_set_queue_capacity(handler, num_messages) };
     }
@@ -214,9 +214,8 @@ impl Lcm {
         where M: Message
     {
         trace!("Received data");
-        let sub = user_data as *mut LcmSubscription;
-        let sub = unsafe { &mut *sub };
-        (sub.handler)(rbuf);
+        let callback = user_data as *mut Box<FnMut(*const lcm_recv_buf_t)>;
+        unsafe { (*(*callback))(rbuf); }
     }
 }
 
@@ -227,9 +226,9 @@ impl Drop for Lcm {
     }
 }
 
-impl fmt::Debug for LcmSubscription {
+impl fmt::Debug for Lcm {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "LcmSubscription {{ subscription: {:?}, handler: {:?} }}", self.subscription, &*self.handler as *const _)
+        write!(f, "Lcm {{ lcm: {:?} }}", self.lcm)
     }
 }
 

@@ -16,7 +16,7 @@ extern crate log;
 mod ffi;
 
 mod lcm;
-pub use lcm::Lcm;
+pub use lcm::{Lcm, ThreadsafeLcm, LcmSubscription};
 
 mod message;
 pub use message::Message;

@@ -56,7 +56,7 @@ impl ThreadsafeLcm {
     /// let mut lcm = ThreadsafeLcm::new().unwrap();
     /// lcm.subscribe("GREETINGS", |name: String| println!("Hello, {}!", name) );
     /// ```
-    pub fn subscribe<M, F>(&mut self, channel: &str, mut callback: F) -> LcmSubscription
+    pub fn subscribe<M, F>(&self, channel: &str, mut callback: F) -> LcmSubscription
         where M: Message,
               F: FnMut(M) + Sync + Send + 'static
     {
@@ -108,7 +108,7 @@ impl ThreadsafeLcm {
     /// // ...
     /// lcm.unsubscribe(subscription);
     /// ```
-    pub fn unsubscribe(&mut self, subscription: LcmSubscription) -> Result<()> {
+    pub fn unsubscribe(&self, subscription: LcmSubscription) -> Result<()> {
         trace!("Unsubscribing handler {:?}", subscription.subscription);
         let result = unsafe { lcm_unsubscribe(self.lcm, subscription.subscription) };
 
@@ -128,7 +128,7 @@ impl ThreadsafeLcm {
     /// let mut lcm = ThreadsafeLcm::new().unwrap();
     /// lcm.publish("GREETINGS", &"Charles".to_string()).unwrap();
     /// ```
-    pub fn publish<M>(&mut self, channel: &str, message: &M) -> Result<()>
+    pub fn publish<M>(&self, channel: &str, message: &M) -> Result<()>
         where M: Message
     {
         let channel = CString::new(channel).unwrap();
@@ -157,7 +157,7 @@ impl ThreadsafeLcm {
     ///     lcm.handle().unwrap();
     /// }
     /// ```
-    pub fn handle(&mut self) -> Result<()> {
+    pub fn handle(&self) -> Result<()> {
         let result = unsafe { lcm_handle(self.lcm) };
         match result {
             0 => Ok(()),
@@ -179,7 +179,7 @@ impl ThreadsafeLcm {
     ///     lcm.handle_timeout(Duration::from_millis(1000)).unwrap();
     /// }
     /// ```
-    pub fn handle_timeout(&mut self, timeout: Duration) -> Result<()> {
+    pub fn handle_timeout(&self, timeout: Duration) -> Result<()> {
         let result = unsafe { lcm_handle_timeout(self.lcm, (timeout.as_secs() * 1000) as i32 + (timeout.subsec_nanos() / 1000_000) as i32) };
         match result.cmp(&0) {
             Ordering::Less => Err(Error::new(ErrorKind::Other, "LCM Error")),

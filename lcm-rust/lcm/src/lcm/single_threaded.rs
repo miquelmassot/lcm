@@ -8,6 +8,9 @@ use super::{LcmSubscription, handler_callback};
 use message::Message;
 use ffi::*;
 
+#[cfg(unix)]
+use std::os::unix::io::{AsRawFd, RawFd};
+
 /// An LCM instance that handles publishing and subscribing,
 /// as well as encoding and decoding messages.
 pub struct Lcm {
@@ -40,6 +43,7 @@ impl Lcm {
         }
     }
 
+    #[deprecated(note = "Prefer the AsRawFd trait")]
     pub fn get_fileno(&self) -> ::std::os::raw::c_int {
         unsafe { lcm_get_fileno(self.lcm) }
     }
@@ -212,6 +216,13 @@ impl Drop for Lcm {
 impl fmt::Debug for Lcm {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Lcm {{ lcm: {:?} }}", self.lcm)
+    }
+}
+
+#[cfg(unix)]
+impl AsRawFd for Lcm {
+    fn as_raw_fd(&self) -> RawFd {
+        unsafe { lcm_get_fileno(self.lcm) }
     }
 }
 

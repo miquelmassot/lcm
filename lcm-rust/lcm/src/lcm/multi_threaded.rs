@@ -9,6 +9,9 @@ use super::{LcmSubscription, handler_callback};
 use message::Message;
 use ffi::*;
 
+#[cfg(unix)]
+use std::os::unix::io::{AsRawFd, RawFd};
+
 /// A threadsafe version of the LCM instance. Because this can be used on
 /// multiple threads, all callbacks must also be threadsafe.
 pub struct ThreadsafeLcm {
@@ -42,6 +45,7 @@ impl ThreadsafeLcm {
         }
     }
 
+    #[deprecated(note = "Prefer the AsRawFd trait")]
     pub fn get_fileno(&self) -> ::std::os::raw::c_int {
         unsafe { lcm_get_fileno(self.lcm) }
     }
@@ -225,6 +229,13 @@ impl Drop for ThreadsafeLcm {
 impl fmt::Debug for ThreadsafeLcm {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "ThreadsafeLcm {{ lcm: {:?} }}", self.lcm)
+    }
+}
+
+#[cfg(unix)]
+impl AsRawFd for ThreadsafeLcm {
+    fn as_raw_fd(&self) -> RawFd {
+        unsafe { lcm_get_fileno(self.lcm) }
     }
 }
 

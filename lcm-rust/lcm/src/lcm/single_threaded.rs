@@ -27,7 +27,7 @@ impl Lcm {
     /// let mut lcm = Lcm::new().unwrap();
     /// ```
     pub fn new() -> Result<Self> {
-        trace!("Creating LCM instance");
+        debug!("Creating LCM instance");
         let lcm = unsafe { lcm_create(ptr::null()) };
         match lcm.is_null() {
             true => Err(Error::new(ErrorKind::Other, "Failed to initialize LCM.")),
@@ -55,7 +55,7 @@ impl Lcm {
         where M: Message,
               F: FnMut(M) + 'static
     {
-        trace!("Subscribing handler to channel {}", channel);
+        debug!("Subscribing handler to channel {}", channel);
 
         let channel = CString::new(channel).unwrap();
 
@@ -103,7 +103,7 @@ impl Lcm {
     /// lcm.unsubscribe(subscription);
     /// ```
     pub fn unsubscribe(&mut self, subscription: LcmSubscription) -> Result<()> {
-        trace!("Unsubscribing handler {:?}", subscription.subscription);
+        debug!("Unsubscribing handler {:?}", subscription.subscription);
         let result = unsafe { lcm_unsubscribe(self.lcm, subscription.subscription) };
 
         match result {
@@ -204,7 +204,7 @@ impl Lcm {
 
 impl Drop for Lcm {
     fn drop(&mut self) {
-        trace!("Destroying Lcm instance");
+        debug!("Destroying Lcm instance");
         unsafe { lcm_destroy(self.lcm) };
     }
 }

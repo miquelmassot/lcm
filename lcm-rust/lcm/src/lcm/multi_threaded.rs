@@ -29,7 +29,7 @@ impl ThreadsafeLcm {
     /// let mut lcm = ThreadsafeLcm::new().unwrap();
     /// ```
     pub fn new() -> Result<Self> {
-        trace!("Creating LCM instance");
+        debug!("Creating LCM instance");
         let lcm = unsafe { lcm_create(ptr::null()) };
         match lcm.is_null() {
             true => Err(Error::new(ErrorKind::Other, "Failed to initialize LCM.")),
@@ -60,7 +60,7 @@ impl ThreadsafeLcm {
         where M: Message,
               F: FnMut(M) + Sync + Send + 'static
     {
-        trace!("Subscribing handler to channel {}", channel);
+        debug!("Subscribing handler to channel \"{}\"", channel);
 
         let channel = CString::new(channel).unwrap();
 
@@ -100,17 +100,23 @@ impl ThreadsafeLcm {
 
     /// Unsubscribes a message handler.
     ///
+    /// This is marked as `unsafe` because there currently is no mechanism for
+    /// preventing you from unsubscribing from a topic while in the middle of
+    /// running its callback. Unsubscribing deletes the closure used to
+    /// trampoline from C into Rust, so this can lead to undefined behavior.
+    /// Future versions will hopefully solve this issue.
+    ///
     /// ```
     /// # use lcm::ThreadsafeLcm;
     /// # let handler_function = |name: String| println!("Hello, {}!", name);
     /// # let mut lcm = ThreadsafeLcm::new().unwrap();
     /// let subscription = lcm.subscribe("GREETINGS", handler_function);
     /// // ...
-    /// lcm.unsubscribe(subscription);
+    /// unsafe { lcm.unsubscribe(subscription); }
     /// ```
-    pub fn unsubscribe(&self, subscription: LcmSubscription) -> Result<()> {
-        trace!("Unsubscribing handler {:?}", subscription.subscription);
-        let result = unsafe { lcm_unsubscribe(self.lcm, subscription.subscription) };
+    pub unsafe fn unsubscribe(&self, subscription: LcmSubscription) -> Result<()> {
+        debug!("Unsubscribing handler {:?}", subscription.subscription);
+        let result = lcm_unsubscribe(self.lcm, subscription.subscription);
 
         match result {
             0 => {
@@ -131,6 +137,7 @@ impl ThreadsafeLcm {
     pub fn publish<M>(&self, channel: &str, message: &M) -> Result<()>
         where M: Message
     {
+        trace!("Publishing on channel \"{}\"", channel);
         let channel = CString::new(channel).unwrap();
         let buffer = message.encode_with_hash()?;
         let result = unsafe {
@@ -210,7 +217,7 @@ impl ThreadsafeLcm {
 
 impl Drop for ThreadsafeLcm {
     fn drop(&mut self) {
-        trace!("Destroying Lcm instance");
+        debug!("Destroying Lcm instance");
         unsafe { lcm_destroy(self.lcm) };
     }
 }
@@ -235,7 +242,7 @@ mod test {
 
     #[test]
     fn test_subscribe() {
-        let mut lcm = ThreadsafeLcm::new().unwrap();
+        let lcm = ThreadsafeLcm::new().unwrap();
         lcm.subscribe("channel", |_: String| {});
         let subs_len = lcm.subscriptions.lock().unwrap().len();
         assert_eq!(subs_len, 1);
@@ -243,9 +250,9 @@ mod test {
 
     #[test]
     fn test_unsubscribe() {
-        let mut lcm = ThreadsafeLcm::new().unwrap();
+        let lcm = ThreadsafeLcm::new().unwrap();
         let sub = lcm.subscribe("channel", |_: String| {});
-        lcm.unsubscribe(sub).unwrap();
+        unsafe { lcm.unsubscribe(sub).unwrap(); }
         let subs_len = lcm.subscriptions.lock().unwrap().len();
         assert_eq!(subs_len, 0);
     }

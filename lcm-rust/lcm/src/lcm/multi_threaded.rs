@@ -3,6 +3,7 @@ use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::ffi::CString;
 use std::io::{Error, ErrorKind, Result};
+use std::os::unix::io::{AsRawFd, RawFd};
 use std::sync::Mutex;
 use std::time::Duration;
 use super::{LcmSubscription, handler_callback};
@@ -42,6 +43,7 @@ impl ThreadsafeLcm {
         }
     }
 
+    #[deprecated(note = "Prefer the AsRawFd trait")]
     pub fn get_fileno(&self) -> ::std::os::raw::c_int {
         unsafe { lcm_get_fileno(self.lcm) }
     }
@@ -225,6 +227,12 @@ impl Drop for ThreadsafeLcm {
 impl fmt::Debug for ThreadsafeLcm {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "ThreadsafeLcm {{ lcm: {:?} }}", self.lcm)
+    }
+}
+
+impl AsRawFd for ThreadsafeLcm {
+    fn as_raw_fd(&self) -> RawFd {
+        unsafe { lcm_get_fileno(self.lcm) }
     }
 }
 

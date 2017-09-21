@@ -3,6 +3,7 @@ use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::ffi::CString;
 use std::io::{Error, ErrorKind, Result};
+use std::os::unix::io::{AsRawFd, RawFd};
 use std::time::Duration;
 use super::{LcmSubscription, handler_callback};
 use message::Message;
@@ -40,6 +41,7 @@ impl Lcm {
         }
     }
 
+    #[deprecated(note = "Prefer the AsRawFd trait")]
     pub fn get_fileno(&self) -> ::std::os::raw::c_int {
         unsafe { lcm_get_fileno(self.lcm) }
     }
@@ -212,6 +214,12 @@ impl Drop for Lcm {
 impl fmt::Debug for Lcm {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Lcm {{ lcm: {:?} }}", self.lcm)
+    }
+}
+
+impl AsRawFd for Lcm {
+    fn as_raw_fd(&self) -> RawFd {
+        unsafe { lcm_get_fileno(self.lcm) }
     }
 }
 

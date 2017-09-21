@@ -1,11 +1,12 @@
-use std::io::{Error, ErrorKind, Result};
-use std::ffi::CString;
+use std::{fmt, ptr, slice};
 use std::cmp::Ordering;
-use std::time::Duration;
-use std::{ptr, slice, fmt};
 use std::collections::HashMap;
-use ffi::*;
+use std::ffi::CString;
+use std::io::{Error, ErrorKind, Result};
+use std::time::Duration;
+use super::{LcmSubscription, handler_callback};
 use message::Message;
+use ffi::*;
 
 /// An LCM instance that handles publishing and subscribing,
 /// as well as encoding and decoding messages.
@@ -18,13 +19,6 @@ pub struct Lcm {
     subscriptions: HashMap<*mut lcm_subscription_t, Box<Box<FnMut(*const lcm_recv_buf_t)>>>,
 }
 
-
-#[derive(Debug)]
-pub struct LcmSubscription {
-    subscription: *mut lcm_subscription_t,
-}
-
-
 impl Lcm {
     /// Creates a new `Lcm` instance.
     ///
@@ -32,7 +26,7 @@ impl Lcm {
     /// use lcm::Lcm;
     /// let mut lcm = Lcm::new().unwrap();
     /// ```
-    pub fn new() -> Result<Lcm> {
+    pub fn new() -> Result<Self> {
         trace!("Creating LCM instance");
         let lcm = unsafe { lcm_create(ptr::null()) };
         match lcm.is_null() {
@@ -88,7 +82,7 @@ impl Lcm {
         let subscription = unsafe {
             lcm_subscribe(self.lcm,
                           channel.as_ptr(),
-                          Some(Lcm::handler_callback::<M>),
+                          Some(handler_callback),
                           &*handler as *const _  as *mut _)
         };
 
@@ -111,8 +105,6 @@ impl Lcm {
     pub fn unsubscribe(&mut self, subscription: LcmSubscription) -> Result<()> {
         trace!("Unsubscribing handler {:?}", subscription.subscription);
         let result = unsafe { lcm_unsubscribe(self.lcm, subscription.subscription) };
-
-        self.subscriptions.remove(&subscription.subscription);
 
         match result {
             0 => {
@@ -208,15 +200,6 @@ impl Lcm {
 
 
 
-    extern "C" fn handler_callback<M>(rbuf: *const lcm_recv_buf_t,
-                                      _: *const ::std::os::raw::c_char,
-                                      user_data: *mut ::std::os::raw::c_void)
-        where M: Message
-    {
-        trace!("Received data");
-        let callback = user_data as *mut Box<FnMut(*const lcm_recv_buf_t)>;
-        unsafe { (*(*callback))(rbuf); }
-    }
 }
 
 impl Drop for Lcm {

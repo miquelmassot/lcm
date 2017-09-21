@@ -27,11 +27,9 @@ pub trait Message {
     }
 
     /// Returns the message hash for this type.
-    /// Returns `0` for all primitive types.
+    /// Hash values are ignored for the primitive types.
     /// Generated `Lcm` types should implement this function.
-    fn hash() -> u64 where Self: Sized {
-        0
-    }
+    fn hash() -> u64 where Self: Sized;
 
     /// Encodes a message into a buffer.
     /// `Lcm` uses a `Vec<u8>` with its capacity set to the value returned by [`size()`].
@@ -45,6 +43,10 @@ pub trait Message {
 }
 
 impl Message for bool {
+    fn hash() -> u64 {
+        0
+    }
+
     fn encode(&self, buffer: &mut Write) -> Result<()> {
         let value: i8 = match *self {
             true => 1,
@@ -69,6 +71,10 @@ impl Message for bool {
 }
 
 impl Message for u8 {
+    fn hash() -> u64 {
+        1 << 0
+    }
+
     fn encode(&self, buffer: &mut Write) -> Result<()> {
         buffer.write_u8(*self)
     }
@@ -83,6 +89,10 @@ impl Message for u8 {
 }
 
 impl Message for i8 {
+    fn hash() -> u64 {
+        1 << 1
+    }
+
     fn encode(&self, buffer: &mut Write) -> Result<()> {
         buffer.write_i8(*self)
     }
@@ -97,6 +107,10 @@ impl Message for i8 {
 }
 
 impl Message for i16 {
+    fn hash() -> u64 {
+        1 << 2
+    }
+
     fn encode(&self, buffer: &mut Write) -> Result<()> {
         buffer.write_i16::<BigEndian>(*self)
     }
@@ -111,6 +125,10 @@ impl Message for i16 {
 }
 
 impl Message for i32 {
+    fn hash() -> u64 {
+        1 << 3
+    }
+
     fn encode(&self, buffer: &mut Write) -> Result<()> {
         buffer.write_i32::<BigEndian>(*self)
     }
@@ -125,6 +143,10 @@ impl Message for i32 {
 }
 
 impl Message for u64 {
+    fn hash() -> u64 {
+        1 << 4
+    }
+
     fn encode(&self, buffer: &mut Write) -> Result<()> {
         buffer.write_u64::<BigEndian>(*self)
     }
@@ -139,6 +161,10 @@ impl Message for u64 {
 }
 
 impl Message for i64 {
+    fn hash() -> u64 {
+        1 << 5
+    }
+
     fn encode(&self, buffer: &mut Write) -> Result<()> {
         buffer.write_i64::<BigEndian>(*self)
     }
@@ -153,6 +179,10 @@ impl Message for i64 {
 }
 
 impl Message for f32 {
+    fn hash() -> u64 {
+        1 << 6
+    }
+
     fn encode(&self, buffer: &mut Write) -> Result<()> {
         buffer.write_f32::<BigEndian>(*self)
     }
@@ -167,6 +197,10 @@ impl Message for f32 {
 }
 
 impl Message for f64 {
+    fn hash() -> u64 {
+        1 << 7
+    }
+
     fn encode(&self, buffer: &mut Write) -> Result<()> {
         buffer.write_f64::<BigEndian>(*self)
     }
@@ -181,6 +215,10 @@ impl Message for f64 {
 }
 
 impl Message for String {
+    fn hash() -> u64 {
+        1 << 8
+    }
+
     fn encode(&self, buffer: &mut Write) -> Result<()> {
         let len: i32 = self.len() as i32 + 1;
         len.encode(buffer)?;

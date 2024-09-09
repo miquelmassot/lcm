@@ -38,6 +38,9 @@ int emit_go(lcmgen_t *lcm);
 void setup_cpp_options(getopt_t *gopt);
 int emit_cpp(lcmgen_t *lcm);
 
+void setup_rust_options(getopt_t *gopt);
+int emit_rust(lcmgen_t *lcm);
+
 int main(int argc, char *argv[])
 {
     getopt_t *gopt = getopt_create();
@@ -80,9 +83,13 @@ int main(int argc, char *argv[])
     getopt_add_spacer(gopt, "**** Go options ****");
     getopt_add_bool(gopt, 'g', "go",       0, "Emit Go code");
     setup_go_options(gopt);
+
+    getopt_add_spacer(gopt, "**** Rust options ****");
+    getopt_add_bool  (gopt, 'r', "rust", 0, "Emit Rust code");
+    setup_rust_options(gopt);
     // clang-format on
 
-    if (!getopt_parse(gopt, argc, argv, 1) || getopt_get_bool(gopt, "help")) {
+    if (!getopt_parse(gopt, argc, argv, 1) || getopt_get_bool(gopt,"help")) {
         printf("Usage: %s [options] <input files>\n\n", argv[0]);
         getopt_do_usage(gopt);
         return 0;
@@ -172,6 +179,13 @@ int main(int argc, char *argv[])
             printf("An error occurred while emitting Go code.\n");
             res = -1;
         }
+    }
+
+    if (getopt_get_bool(gopt, "rust")) {
+      did_something = 1;
+      if (emit_rust(lcm)) {
+        printf("An error occurred while emitting Rust code.\n");
+      }
     }
 
     if (did_something == 0) {

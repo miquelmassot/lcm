@@ -6,6 +6,7 @@ set(lcm-gen_sources
   emit_java.c
   emit_lua.c
   emit_python.c
+  emit_rust.c
   getopt.c
   getopt.h
   lcmgen.c

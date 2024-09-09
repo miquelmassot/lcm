@@ -1,0 +1,17 @@
+[package]
+name = "rust-example"
+version = "0.1.0"
+authors = ["Anthony Deschamps <anthony.j.deschamps@gmail.com>"]
+build = "build.rs"
+
+[dependencies]
+env_logger = "*"
+lcm = { path = "../../lcm-rust/lcm", features = ["log"] }
+log = "*"
+
+[build-dependencies]
+lcm_gen = { path = "../../lcm-rust/lcm-gen" }
+
+[lib]
+name = "example"
+path = "src/lib.rs"

@@ -1,0 +1,13 @@
+[package]
+name = "lcm_gen"
+version = "0.1.1"
+authors = ["Anthony Deschamps <anthony.j.deschamps@gmail.com>"]
+description = "Build dependency to invoke lcm-gen"
+documentation = "https://docs.rs/crate/lcm_gen"
+homepage = "https://github.com/adeschamps/lcm/tree/rust/lcm-rust/lcm-gen"
+repository = "https://github.com/adeschamps/lcm/tree/rust/lcm-rust/lcm-gen"
+license = "LGPL-2.1"
+categories = ["api-bindings", "external-ffi-bindings", "encoding"]
+
+[dependencies]
+glob = "0.2"
